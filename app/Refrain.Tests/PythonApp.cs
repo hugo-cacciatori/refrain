@@ -91,6 +91,9 @@ static class PythonApp
 
     static string Detokenize(string text, List<(string Path, string Token)> roots)
     {
+        // The fixtures moved to conformance/fixtures (SPEC §38) after these answers were recorded.
+        text = text.Replace(@"<REPO|j>\\app\\Refrain.Tests\\Fixtures", @"<REPO|j>\\conformance\\fixtures")
+            .Replace(@"<REPO>\app\Refrain.Tests\Fixtures", @"<REPO>\conformance\fixtures");
         foreach (var (path, token) in roots)
             text = text.Replace(token.Replace(">", "|j>"), Escaped(path)).Replace(token, path);
         return text;

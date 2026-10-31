@@ -1,0 +1,261 @@
+[
+  {
+    "id": "flac",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".flac"
+    }
+  },
+  {
+    "id": "ogg",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".ogg"
+    }
+  },
+  {
+    "id": "oga",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".oga"
+    }
+  },
+  {
+    "id": "opus",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".opus"
+    }
+  },
+  {
+    "id": "spx",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".spx"
+    }
+  },
+  {
+    "id": "mp3",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".mp3"
+    }
+  },
+  {
+    "id": "mp2",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".mp2"
+    }
+  },
+  {
+    "id": "wav",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".wav"
+    }
+  },
+  {
+    "id": "aif",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".aif"
+    }
+  },
+  {
+    "id": "aiff",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".aiff"
+    }
+  },
+  {
+    "id": "aifc",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".aifc"
+    }
+  },
+  {
+    "id": "m4a",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".m4a"
+    }
+  },
+  {
+    "id": "mp4",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".mp4"
+    }
+  },
+  {
+    "id": "m4b",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".m4b"
+    }
+  },
+  {
+    "id": "wv",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".wv"
+    }
+  },
+  {
+    "id": "mpc",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".mpc"
+    }
+  },
+  {
+    "id": "tak",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".tak"
+    }
+  },
+  {
+    "id": "ofr",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".ofr"
+    }
+  },
+  {
+    "id": "ofs",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".ofs"
+    }
+  },
+  {
+    "id": "tta",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".tta"
+    }
+  },
+  {
+    "id": "wma",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".wma"
+    }
+  },
+  {
+    "id": "dsf",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".dsf"
+    }
+  },
+  {
+    "id": "dff",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".dff"
+    }
+  },
+  {
+    "id": "aac",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".aac"
+    }
+  },
+  {
+    "id": "ape",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".ape"
+    }
+  },
+  {
+    "id": "cue",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".cue"
+    }
+  },
+  {
+    "id": "lrc",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".lrc"
+    }
+  },
+  {
+    "id": "log",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".log"
+    }
+  },
+  {
+    "id": "jpg",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".jpg"
+    }
+  },
+  {
+    "id": "m3u8",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".m3u8"
+    }
+  },
+  {
+    "id": "txt",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".txt"
+    }
+  },
+  {
+    "id": "upper case",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".FLAC"
+    }
+  },
+  {
+    "id": "mixed case",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".Mp3"
+    }
+  },
+  {
+    "id": "no extension",
+    "op": "formats.classify",
+    "input": {
+      "ext": ""
+    }
+  },
+  {
+    "id": "two dots",
+    "op": "formats.classify",
+    "input": {
+      "ext": "..flac"
+    }
+  },
+  {
+    "id": "sharp s",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".straße"
+    }
+  },
+  {
+    "id": "accented",
+    "op": "formats.classify",
+    "input": {
+      "ext": ".éclat"
+    }
+  }
+]

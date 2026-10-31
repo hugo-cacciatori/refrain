@@ -1,0 +1,224 @@
+{
+  "flac": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "FLAC"
+  },
+  "ogg": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "OGG"
+  },
+  "oga": {
+    "audio": true,
+    "read": false,
+    "replaygain": true,
+    "label": "OGA"
+  },
+  "opus": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "OPUS"
+  },
+  "spx": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "SPX"
+  },
+  "mp3": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "MP3"
+  },
+  "mp2": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "MP2"
+  },
+  "wav": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "WAV"
+  },
+  "aif": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "AIF"
+  },
+  "aiff": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "AIFF"
+  },
+  "aifc": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "AIFC"
+  },
+  "m4a": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "M4A"
+  },
+  "mp4": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "MP4"
+  },
+  "m4b": {
+    "audio": true,
+    "read": true,
+    "replaygain": false,
+    "label": "M4B"
+  },
+  "wv": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "WV"
+  },
+  "mpc": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "MPC"
+  },
+  "tak": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "TAK"
+  },
+  "ofr": {
+    "audio": true,
+    "read": true,
+    "replaygain": false,
+    "label": "OFR"
+  },
+  "ofs": {
+    "audio": true,
+    "read": true,
+    "replaygain": false,
+    "label": "OFS"
+  },
+  "tta": {
+    "audio": true,
+    "read": false,
+    "replaygain": false,
+    "label": "TTA"
+  },
+  "wma": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "WMA"
+  },
+  "dsf": {
+    "audio": true,
+    "read": true,
+    "replaygain": false,
+    "label": "DSF"
+  },
+  "dff": {
+    "audio": true,
+    "read": true,
+    "replaygain": false,
+    "label": "DFF"
+  },
+  "aac": {
+    "audio": true,
+    "read": true,
+    "replaygain": false,
+    "label": "AAC"
+  },
+  "ape": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "APE"
+  },
+  "cue": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "CUE"
+  },
+  "lrc": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "LRC"
+  },
+  "log": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "LOG"
+  },
+  "jpg": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "JPG"
+  },
+  "m3u8": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "M3U8"
+  },
+  "txt": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "TXT"
+  },
+  "upper case": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "FLAC"
+  },
+  "mixed case": {
+    "audio": true,
+    "read": true,
+    "replaygain": true,
+    "label": "MP3"
+  },
+  "no extension": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": ""
+  },
+  "two dots": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "FLAC"
+  },
+  "sharp s": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "STRAßE"
+  },
+  "accented": {
+    "audio": false,
+    "read": false,
+    "replaygain": false,
+    "label": "ÉCLAT"
+  }
+}

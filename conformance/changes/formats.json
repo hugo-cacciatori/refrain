@@ -1,0 +1,11 @@
+{
+  "wma": {
+    "why": "WMA is a plain file in the rewrite, like .ape: lofty has no WMA, and none of the 32,376 indexed tracks it was measured on is WMA (SPEC §38, 2026-10-31).",
+    "answer": {
+      "audio": false,
+      "read": false,
+      "replaygain": false,
+      "label": "WMA"
+    }
+  }
+}

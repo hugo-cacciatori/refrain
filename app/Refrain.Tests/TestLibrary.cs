@@ -12,17 +12,18 @@ static class Setup
         Environment.SetEnvironmentVariable("REFRAIN_DATA",
             Directory.CreateTempSubdirectory("refrain-tests-data-").FullName);
 
-    /// <summary>app/Refrain.Tests/Fixtures of the repository, found upward from the test binaries.</summary>
+    /// <summary>conformance/fixtures of the repository, shared with the rewrite (SPEC §38), found upward from the test
+    /// binaries.</summary>
     public static string Fixtures
     {
         get
         {
             for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
             {
-                var candidate = Path.Combine(dir.FullName, "app", "Refrain.Tests", "Fixtures");
+                var candidate = Path.Combine(dir.FullName, "conformance", "fixtures");
                 if (Directory.Exists(candidate)) return candidate;
             }
-            throw new DirectoryNotFoundException("app/Refrain.Tests/Fixtures not found");
+            throw new DirectoryNotFoundException("conformance/fixtures not found");
         }
     }
 

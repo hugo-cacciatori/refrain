@@ -14,3 +14,8 @@ CLAUDE.local.md
 .claude/
 .git-docs/
 docs/
+
+# The rewrite (SPEC §38): Rust and front-end build output (ui/dist/ falls under dist/ above)
+target/
+node_modules/
+crates/refrain-app/gen/

@@ -1,2 +1,2 @@
 # The test fixtures must stay byte-exact (cue sheets' encodings and line endings, audio files).
-app/Refrain.Tests/Fixtures/** -text
+conformance/fixtures/** -text

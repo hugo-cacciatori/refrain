@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What every Refrain window may ask of Tauri itself; Refrain's own commands are allowed to all.",
+  "windows": ["*"],
+  "permissions": ["core:default"]
+}
