@@ -77,6 +77,13 @@ public partial class App : Application
     /// <summary>Ratings and notes (SPEC §37), shared by the Search window's preview and the discography view.</summary>
     public Ratings Ratings { get; } = new(AppPaths.Ratings);
 
+    /// <summary>MusicBrainz, one client for the process so its one-request-a-second rule holds across dates, namesakes
+    /// and music videos (SPEC §37).</summary>
+    public Core.Dates.MusicBrainzClient MusicBrainz { get; } = new();
+
+    /// <summary>Songs' music videos, as MusicBrainz gave them (SPEC §37).</summary>
+    public Core.Dates.MusicVideos Videos { get; } = new(AppPaths.Videos);
+
     /// <summary>The index, its indexer and LRCLIB lookups: one for the process, opened by the first window that needs it
     /// (Search, or Options' Library page), closed when the app ends.</summary>
     public Library Library => library ??= new Library(AppPaths.Database);
@@ -104,6 +111,8 @@ public partial class App : Application
         Log.Info($"Refrain {typeof(App).Assembly.GetName().Version} started");
         Theme.Apply(this);  // the look, before any window (SPEC §36 "11."); the resources exist only from here
         Core.Dates.Homonyms.Current = new Core.Dates.Homonyms(AppPaths.Homonyms);  // how namesakes were sorted (SPEC §37)
+        // The video player's web view keeps its files in the data folder: next to Refrain.exe, in Program Files, it can't.
+        Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", Path.Combine(AppPaths.DataFolder, "webview"));
         var queue = DispatcherQueue.GetForCurrentThread();
         if (instance is not null)
             instance.Received += later => queue.TryEnqueue(() => Handle(later));

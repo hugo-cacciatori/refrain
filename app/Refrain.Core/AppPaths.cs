@@ -37,5 +37,10 @@ public static class AppPaths
     public static string Ratings => Path.Combine(DataFolder, "ratings.json");
     /// <summary>How the user sorted artists sharing a name (SPEC §37).</summary>
     public static string Homonyms => Path.Combine(DataFolder, "homonyms.json");
+    /// <summary>Songs' music videos found through MusicBrainz (SPEC §37), and songs known to have none.</summary>
+    public static string Videos => Path.Combine(DataFolder, "videos.json");
+    /// <summary>The page the video player is (served to the web view under its own host name, so YouTube sees a
+    /// referrer), written at start.</summary>
+    public static string VideoPage => Path.Combine(DataFolder, "video");
     public static string Logs => Directory.CreateDirectory(Path.Combine(DataFolder, "logs")).FullName;
 }

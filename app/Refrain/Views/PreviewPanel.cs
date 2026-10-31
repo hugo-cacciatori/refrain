@@ -33,6 +33,10 @@ public sealed partial class PreviewPanel : UserControl
     readonly ScrollViewer folderScroll = new() { HorizontalScrollMode = ScrollMode.Disabled };
     readonly Grid songBody = new();
     readonly TextBlock empty = Ui.Secondary();
+    // A music video, when the song has one (SPEC §37): it plays the excerpt instead of the audio, under the same rules.
+    readonly VideoView video = new() { Height = 170, Visibility = Visibility.Collapsed };
+    (string Path, string What)? audioExcerpt;
+    bool checkMuted;
     // Tidy in the preview (SPEC §37): a collapsible section at the very bottom, for folders.
     readonly Expander tidy = new() { HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(8, 4, 8, 8) };
     readonly TextBlock tidyTitle = new() { Text = "Tidy", VerticalAlignment = VerticalAlignment.Center };
@@ -62,6 +66,14 @@ public sealed partial class PreviewPanel : UserControl
         head.Children.Add(subtitle);
         head.Children.Add(stars);
         head.Children.Add(soundRow);
+        head.Children.Add(video);
+        video.Message += message =>
+        {
+            if (message != "error") return;
+            // YouTube refused it (removed, not to be embedded): the audio excerpt instead.
+            HideVideo();
+            if (audioExcerpt is { } fallback) _ = PlayExcerpt(fallback.Path, fallback.What, generation);
+        };
         empty.Margin = new Thickness(16);
 
         songBody.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -100,8 +112,15 @@ public sealed partial class PreviewPanel : UserControl
     /// <summary>For an agent's off-screen check: the excerpt makes no sound at all.</summary>
     public bool Muted
     {
-        set => excerpt.Muted = value;
+        set
+        {
+            excerpt.Muted = value;
+            checkMuted = value;
+        }
     }
+
+    /// <summary>Previews are silent while the player plays, or with their sound off (SPEC §37).</summary>
+    bool Silent => checkMuted || !settings.PreviewSound || player.Playing;
 
     /// <summary>What the preview shows now, for an agent's check.</summary>
     public string Describe() =>
@@ -120,9 +139,11 @@ public sealed partial class PreviewPanel : UserControl
             ? player.Playing ? "Previews have sound, but stay silent while the player plays. Click to mute every preview"
                              : "Previews play with sound. Click to mute every preview"
             : "Previews are silent. Click to give every preview its sound");
-        nowPlaying.Text = excerpt.Playing is not { } song ? ""
-            : player.Playing && settings.PreviewSound ? $"{song} (silent while the player plays)"
-            : song;
+        var what = video.Visibility == Visibility.Visible ? "Music video excerpt" : excerpt.Playing;
+        nowPlaying.Text = what is null ? ""
+            : player.Playing && settings.PreviewSound ? $"{what} (silent while the player plays)"
+            : what;
+        _ = video.SetMuted(Silent);
     }
 
     /// <summary>Nothing to preview (several results, none, a cleared search): the excerpt stops.</summary>
@@ -135,6 +156,7 @@ public sealed partial class PreviewPanel : UserControl
         subtitle.Text = "";
         stars.Load(null);
         empty.Text = text;
+        HideVideo();
         Show(empty);
         ShowSound();
         sound.Visibility = Visibility.Collapsed;
@@ -145,6 +167,7 @@ public sealed partial class PreviewPanel : UserControl
     public void Stop()
     {
         excerpt.Stop();
+        HideVideo();
         ShowSound();
     }
 
@@ -182,7 +205,9 @@ public sealed partial class PreviewPanel : UserControl
             Show(songBody);
             HideTidy();
             _ = lyrics.Load(row.Id);
+            HideVideo();
             if (info.Path is { } path) await PlayExcerpt(path, "Excerpt", mine);
+            await TryVideo(Field("Artist"), Field("Title"), mine);
             return;
         }
         var folder = await Read(conn => FolderPreview.Read(conn, row.Id));
@@ -243,8 +268,13 @@ public sealed partial class PreviewPanel : UserControl
             sound.Visibility = Visibility.Collapsed;
             return;
         }
-        var pick = folder.Songs[Random.Shared.Next(folder.Songs.Count)];
-        if (await Read(conn => Queries.PathOf(conn, pick.Id)) is { } pickPath) await PlayExcerpt(pickPath, $"Excerpt: {pick.Title}", mine);
+        // Songs known to have a music video first, one at random; else any song, whose video is looked up meanwhile.
+        HideVideo();
+        var videos = App.Instance.Videos;
+        var withVideo = folder.Artist is { } folderArtist ? folder.Songs.Where(s => videos.Known(folderArtist, s.Title) is { Length: > 0 }).ToList() : [];
+        var pick = (withVideo.Count > 0 ? withVideo : folder.Songs.ToList())[Random.Shared.Next(withVideo.Count > 0 ? withVideo.Count : folder.Songs.Count)];
+        if (withVideo.Count == 0 && await Read(conn => Queries.PathOf(conn, pick.Id)) is { } pickPath) await PlayExcerpt(pickPath, $"Excerpt: {pick.Title}", mine);
+        if (folder.Artist is { } by) await TryVideo(by, pick.Title, mine);
     }
 
     void AddDetail(string label, string value)
@@ -260,9 +290,39 @@ public sealed partial class PreviewPanel : UserControl
         details.Children.Add(text);
     }
 
+    /// <summary>The song's music video, known or asked of MusicBrainz (no key; offline, none): found while the preview
+    /// still shows it, it replaces the audio excerpt.</summary>
+    async Task TryVideo(string artist, string title, int mine)
+    {
+        if (artist.Length == 0 || title.Length == 0 || checkMuted) return;  // an agent's check stays off the network
+        string? id;
+        try
+        {
+            id = await App.Instance.Videos.Find(App.Instance.MusicBrainz, artist, title);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            Log.Info($"MusicBrainz music video lookup of {artist} – {title} failed: {e.Message}");
+            return;
+        }
+        if (id is null || mine != generation) return;
+        excerpt.Stop();
+        sound.Visibility = Visibility.Visible;
+        video.Visibility = Visibility.Visible;
+        await video.Play(id, excerpt: true, Silent);
+        ShowSound();
+    }
+
+    void HideVideo()
+    {
+        video.Stop();
+        video.Visibility = Visibility.Collapsed;
+    }
+
     async Task PlayExcerpt(string path, string what, int mine)
     {
         if (mine != generation) return;
+        audioExcerpt = (path, what);
         sound.Visibility = Visibility.Visible;
         await excerpt.Play(path, what);
         ShowSound();

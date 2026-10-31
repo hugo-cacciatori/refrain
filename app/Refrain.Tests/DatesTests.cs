@@ -151,3 +151,50 @@ public sealed class HomonymsTests : IDisposable
         }
     }
 }
+
+/// <summary>Music videos (SPEC §37): a video recording's YouTube link through MusicBrainz, kept once found.</summary>
+public sealed class MusicVideosTests
+{
+    [Fact]
+    public async Task A_song_finds_its_music_video_through_musicbrainz_and_keeps_it()
+    {
+        var fake = new FakeLrclib(request =>
+        {
+            var path = request.RequestUri!.PathAndQuery;
+            if (path.Contains("recording?query", StringComparison.Ordinal))
+                return FakeLrclib.Json("""
+                    {"recordings": [
+                      {"id": "audio", "title": "Jóga", "video": false, "artist-credit": [{"name": "Björk"}]},
+                      {"id": "live", "title": "Jóga (live)", "video": true, "artist-credit": [{"name": "Björk"}]},
+                      {"id": "clip", "title": "Joga", "video": true, "artist-credit": [{"name": "Bjork"}]}
+                    ]}
+                    """);
+            if (path.Contains("recording/clip", StringComparison.Ordinal))
+                return FakeLrclib.Json("""
+                    {"relations": [{"type": "purchase for download", "url": {"resource": "https://example.com/joga"}},
+                                   {"type": "free streaming", "url": {"resource": "https://www.youtube.com/watch?v=Vq_9xx3bLDU&t=5"}}]}
+                    """);
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        });
+        using var client = new MusicBrainzClient(fake, (_, _) => Task.CompletedTask);
+        using var temp = new TempFolder();
+        var file = System.IO.Path.Combine(temp.Path, "videos.json");
+        var videos = new MusicVideos(file);
+        Assert.Null(videos.Known("Björk", "Jóga"));
+        Assert.Equal("Vq_9xx3bLDU", await videos.Find(client, "Björk", "Jóga", TestContext.Current.CancellationToken));
+        var asked = fake.Requests.Count;
+        Assert.Equal("Vq_9xx3bLDU", await new MusicVideos(file).Find(client, "BJORK", "joga", TestContext.Current.CancellationToken));
+        Assert.Equal(asked, fake.Requests.Count);  // kept: not asked again
+        Assert.Null(await videos.Find(client, "Björk", "Hunter", TestContext.Current.CancellationToken));  // none found
+        Assert.Equal("", videos.Known("Björk", "Hunter"));  // known to have none, for 30 days
+    }
+
+    [Fact]
+    public void Only_youtube_links_give_a_video()
+    {
+        Assert.Equal("Vq_9xx3bLDU", MusicVideos.YouTubeId("https://youtu.be/Vq_9xx3bLDU"));
+        Assert.Equal("Vq_9xx3bLDU", MusicVideos.YouTubeId("https://www.youtube.com/embed/Vq_9xx3bLDU"));
+        Assert.Null(MusicVideos.YouTubeId("https://music.youtube.com/watch?v=Vq_9xx3bLDU"));  // YouTube Music: never
+        Assert.Null(MusicVideos.YouTubeId("https://vimeo.com/123"));
+    }
+}

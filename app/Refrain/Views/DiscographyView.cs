@@ -137,7 +137,7 @@ public sealed partial class DiscographyView : UserControl
         stage.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         stage.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         stage.Children.Add(view);
-        panel.Child = new ScrollViewer { Content = panelBody, HorizontalScrollMode = ScrollMode.Disabled };
+        BuildPanel();
         Grid.SetColumn(panel, 1);
         stage.Children.Add(panel);
         Content = stage;
@@ -1067,6 +1067,85 @@ public sealed partial class DiscographyView : UserControl
 
     // -- the info panel --
 
+    // The info panel's tabs (SPEC §37): Info, and Video when the chosen song has a music video.
+    readonly ToggleButton infoTab = new() { Content = "Info", IsChecked = true };
+    readonly ToggleButton videoTab = new() { Content = "Video", Visibility = Visibility.Collapsed };
+    readonly ScrollViewer infoScroll = new() { HorizontalScrollMode = ScrollMode.Disabled };
+    readonly StackPanel videoPane = new() { Spacing = 8, Padding = new Thickness(12, 8, 12, 12), Visibility = Visibility.Collapsed };
+    readonly VideoView songVideo = new() { Height = 150 };
+    readonly Button replay = Ui.Button("Replay", "Play the video again from its start");
+    string? videoId;
+    long? videoSong, shownSong;
+    (string Artist, string Title) videoSearch = ("", "");
+
+    void BuildPanel()
+    {
+        infoScroll.Content = panelBody;
+        var tabs = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(12, 48, 12, 0) };
+        tabs.Children.Add(infoTab);
+        tabs.Children.Add(videoTab);
+        videoPane.Children.Add(songVideo);
+        replay.Visibility = Visibility.Collapsed;
+        videoPane.Children.Add(replay);
+        videoPane.Children.Add(Ui.Secondary("Starting the video pauses the player."));
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(tabs);
+        Grid.SetRow(infoScroll, 1);
+        grid.Children.Add(infoScroll);
+        Grid.SetRow(videoPane, 1);
+        grid.Children.Add(videoPane);
+        panel.Child = grid;
+        infoTab.Click += (_, _) => ShowTab(video: false);
+        videoTab.Click += (_, _) => ShowTab(video: true);
+        replay.Click += (_, _) =>
+        {
+            replay.Visibility = Visibility.Collapsed;
+            _ = songVideo.Replay();
+        };
+        // The player is interrupted only on purpose: starting the video here (SPEC §37). It stops at its end, with Replay.
+        songVideo.Message += message =>
+        {
+            if (message == "playing")
+            {
+                replay.Visibility = Visibility.Collapsed;
+                if (player.Playing) player.Toggle();
+            }
+            else if (message == "ended") replay.Visibility = Visibility.Visible;
+        };
+    }
+
+    void ShowTab(bool video)
+    {
+        infoTab.IsChecked = !video;
+        videoTab.IsChecked = video;
+        infoScroll.Visibility = video ? Visibility.Collapsed : Visibility.Visible;
+        videoPane.Visibility = video ? Visibility.Visible : Visibility.Collapsed;
+        if (video && videoId is { } id) _ = songVideo.Play(id, excerpt: false, muted: false);
+        else songVideo.Stop();
+        replay.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>The chosen song's music video, known or asked of MusicBrainz: its tab shows when there is one.</summary>
+    async Task FindVideo(string artist, string title, long song)
+    {
+        string? id = null;
+        if (!SearchWindow.Offscreen && artist.Length > 0 && title.Length > 0)
+            try
+            {
+                id = await App.Instance.Videos.Find(App.Instance.MusicBrainz, artist, title);
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+            {
+                Log.Info($"MusicBrainz music video lookup of {artist} – {title} failed: {e.Message}");
+            }
+        if (song != videoSong || id == videoId) return;
+        videoId = id;
+        videoTab.Visibility = id is null ? Visibility.Collapsed : Visibility.Visible;
+        if (id is null && videoTab.IsChecked == true) ShowTab(video: false);
+    }
+
     void TogglePanel()
     {
         var closing = panel.Visibility == Visibility.Visible;
@@ -1116,12 +1195,31 @@ public sealed partial class DiscographyView : UserControl
                     fields.Add(("Song", ""));
                     fields.AddRange(info.Fields);
                     ratingKey = info.RatingKey;
+                    string Field(string label) => info.Fields.FirstOrDefault(f => f.Label == label).Value ?? "";
+                    shownSong = chosen;
+                    videoSearch = (Field("Artist"), Field("Title"));
                 }
                 break;
             default:
                 return;
         }
         if (version != panelVersion) return;
+        if (level != Level.Album || ratingKey is null)
+        {
+            // Not a song any more: no video (a song's search starts with its own, above).
+            videoId = null;
+            videoTab.Visibility = Visibility.Collapsed;
+            if (videoTab.IsChecked == true) ShowTab(video: false);
+        }
+        else if (shownSong != videoSong)
+        {
+            videoSong = shownSong;
+            videoId = null;
+            videoTab.Visibility = Visibility.Collapsed;
+            if (videoTab.IsChecked == true) ShowTab(video: false);  // another song: back to its info
+        }
+        if (level == Level.Album && ratingKey is not null && videoId is null && shownSong is { } searched)
+            _ = FindVideo(videoSearch.Artist, videoSearch.Title, searched);
         panelBody.Children.Clear();
         panelBody.Children.Add(new TextBlock
         {

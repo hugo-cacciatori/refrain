@@ -98,6 +98,24 @@ public sealed class MusicBrainzClient : IDisposable
             .SelectMany(g => g.Credits ?? []).FirstOrDefault(c => Names.Key(c.Name ?? c.Artist?.Name) == Names.Key(artist))?.Artist?.Id;
     }
 
+    /// <summary>The song's music video on YouTube (SPEC §37): a video recording with its title, credited to its artist,
+    /// that links to YouTube for streaming; the first such link, else null.</summary>
+    public async Task<string?> MusicVideo(string artist, string title, CancellationToken cancel = default)
+    {
+        var query = WebUtility.UrlEncode($"recording:{Quote(title)} AND artist:{Quote(artist)} AND video:true");
+        var found = await Get($"recording?query={query}&limit=10&fmt=json", MusicBrainzJson.Default.RecordingSearch, cancel);
+        var candidates = (found?.Recordings ?? []).Where(r => r.Video == true && r.Id is not null &&
+            Names.Key(r.Title) == Names.Key(title) && r.Credits?.Any(c => Names.Key(c.Name ?? c.Artist?.Name) == Names.Key(artist)) == true).Take(3);
+        foreach (var candidate in candidates)
+        {
+            var recording = await Get($"recording/{candidate.Id}?inc=url-rels&fmt=json", MusicBrainzJson.Default.RecordingJson, cancel);
+            var link = recording?.Relations?.Where(r => r.Type is "free streaming" or "streaming")
+                .Select(r => MusicVideos.YouTubeId(r.Url?.Resource)).FirstOrDefault(id => id is not null);
+            if (link is not null) return link;
+        }
+        return null;
+    }
+
     static string Describe(ReleaseJson release)
     {
         var parts = new List<string>();
@@ -162,6 +180,31 @@ public sealed class ReleaseJson
     [JsonPropertyName("disambiguation")] public string? Disambiguation { get; set; }
 }
 
+public sealed class RecordingSearch
+{
+    [JsonPropertyName("recordings")] public List<RecordingJson>? Recordings { get; set; }
+}
+
+public sealed class RecordingJson
+{
+    [JsonPropertyName("id")] public string? Id { get; set; }
+    [JsonPropertyName("title")] public string? Title { get; set; }
+    [JsonPropertyName("video")] public bool? Video { get; set; }
+    [JsonPropertyName("artist-credit")] public List<CreditJson>? Credits { get; set; }
+    [JsonPropertyName("relations")] public List<RelationJson>? Relations { get; set; }
+}
+
+public sealed class RelationJson
+{
+    [JsonPropertyName("type")] public string? Type { get; set; }
+    [JsonPropertyName("url")] public UrlJson? Url { get; set; }
+}
+
+public sealed class UrlJson
+{
+    [JsonPropertyName("resource")] public string? Resource { get; set; }
+}
+
 public sealed class ArtistSearch
 {
     [JsonPropertyName("artists")] public List<ArtistJson>? Artists { get; set; }
@@ -170,4 +213,6 @@ public sealed class ArtistSearch
 [JsonSerializable(typeof(GroupSearch))]
 [JsonSerializable(typeof(ReleaseList))]
 [JsonSerializable(typeof(ArtistSearch))]
+[JsonSerializable(typeof(RecordingSearch))]
+[JsonSerializable(typeof(RecordingJson))]
 internal sealed partial class MusicBrainzJson : JsonSerializerContext;

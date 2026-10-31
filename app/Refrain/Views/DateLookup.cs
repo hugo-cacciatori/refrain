@@ -18,7 +18,7 @@ public sealed class DateLookup : IDisposable
 {
     readonly Core.Library library;
     readonly Func<XamlRoot> root;
-    readonly MusicBrainzClient client = new();
+    readonly MusicBrainzClient client = App.Instance.MusicBrainz;
     readonly HashSet<(string, string)> asked = [];
     readonly HashSet<string> namesakesChecked = [];
     bool quietScans, running;
@@ -336,7 +336,6 @@ public sealed class DateLookup : IDisposable
 
     public void Dispose()
     {
-        client.Dispose();
         dialogs.Dispose();
     }
 }

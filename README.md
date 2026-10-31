@@ -43,6 +43,9 @@ ready for a search.
   can go to the album's other songs too. When MusicBrainz shows that your albums under one name belong to different
   artists (two bands called Nightmare), Refrain asks you to sort them, and shows them as separate artists from then
   on. Only the artist's and album's names are sent.
+- **Music videos**: when MusicBrainz links a song to its official music video on YouTube, the preview plays the
+  video instead of the audio excerpt, and the discography view's info panel has a Video tab to watch it whole
+  (starting it pauses the player). Videos play in YouTube's own embedded player, through Windows' web view.
 - **The Search window**, over your whole library. Type any part of a folder or file name, a title, artist, album or
   lyric line; accents and case are ignored, and filters such as `artist:`, `year:`, `ext:` or `lrclib:notfound`
   narrow it. A click on a result previews it on the right while about 30 seconds of it play (silent while the player
