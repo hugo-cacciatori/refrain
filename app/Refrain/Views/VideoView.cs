@@ -41,7 +41,16 @@ public sealed partial class VideoView : UserControl
             web.CoreWebView2.SetVirtualHostNameToFolderMapping(Host, AppPaths.VideoPage, CoreWebView2HostResourceAccessKind.Allow);
             web.CoreWebView2.Settings.AreDevToolsEnabled = false;
             web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-            web.CoreWebView2.WebMessageReceived += (_, e) => Message?.Invoke(e.TryGetWebMessageAsString() is { } text && text.StartsWith("error", StringComparison.Ordinal) ? "error" : e.TryGetWebMessageAsString());
+            web.CoreWebView2.WebMessageReceived += (_, e) =>
+            {
+                var text = e.TryGetWebMessageAsString();
+                if (text.StartsWith("error", StringComparison.Ordinal)) Log.Info($"YouTube refused the video ({text})");
+                Message?.Invoke(text.StartsWith("error", StringComparison.Ordinal) ? "error" : text);
+            };
+            web.CoreWebView2.NavigationCompleted += (_, e) =>
+            {
+                if (!e.IsSuccess) Log.Info($"The video page didn't load: {e.WebErrorStatus}");
+            };
             // Links (YouTube's logo, its title) open in the browser, never inside Refrain.
             web.CoreWebView2.NewWindowRequested += (_, e) =>
             {
@@ -92,11 +101,14 @@ public sealed partial class VideoView : UserControl
         const q = new URLSearchParams(location.search), excerpt = q.get('mode') === 'excerpt';
         let muted = q.get('muted') === '1', player, start = 0, length = 0, fade = 2;
         const send = m => window.chrome && chrome.webview && chrome.webview.postMessage(m);
+        send('page');
         function onYouTubeIframeAPIReady() {
+          send('api');
           player = new YT.Player('p', { width: '100%', height: '100%', videoId: q.get('v'), host: 'https://www.youtube-nocookie.com',
             playerVars: { autoplay: excerpt ? 1 : 0, controls: excerpt ? 0 : 1, rel: 0, playsinline: 1, fs: 0, disablekb: excerpt ? 1 : 0, mute: muted ? 1 : 0 },
             events: {
               onReady: e => {
+                send('ready');
                 const d = e.target.getDuration() || 0;
                 if (d <= 0) { start = 0; length = 30; } else if (d <= 30) { start = 0; length = d; fade = Math.min(2, d / 6); }
                 else { start = Math.min(d / 3, d - 30); length = 30; }

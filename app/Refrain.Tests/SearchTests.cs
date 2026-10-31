@@ -106,25 +106,26 @@ public sealed class SearchTests : IDisposable
         lib.Unread(other, "glove.cue");
         lib.Folder(other, "Gloves");  // no song below it: not a result (SPEC §37)
         var withSong = lib.Folder(other, "Glove box");
-        lib.Unread(withSong, "a.flac");
+        lib.Track(withSong, "a.flac");
         Assert.Equal(["Glove.mp3", "Glove box"], Find("glove"));
         Assert.Empty(Find("Music"));  // not the root's top entry, whose name is the root path
     }
 
     [Fact]
-    public void Names_are_found_before_the_tags_are_read()
+    public void Only_what_is_fully_indexed_is_found()
     {
+        // SPEC §37 (Hugo, 2026-10-31): a song once its tags are read, a folder once it holds such a song; replaces
+        // "names are found before the tags are read".
         var takk = lib.Folder(lib.Top, "Sigur Rós - Takk");
         lib.Unread(takk, "01 Takk.flac");
         lib.Unread(takk, "02 Glósóli.FLAC");
-        Assert.Equal(["Sigur Rós - Takk", "01 Takk.flac"], Find("takk"));
-        Assert.Equal(["02 Glósóli.FLAC"], Find("glosoli"));
-        Assert.Equal(["Sigur Rós - Takk", "02 Glósóli.FLAC"], Find("ós"));
-        Assert.Equal(["01 Takk.flac"], Find("ext:flac takk"));
-        HashSet<string> unread = ["Sigur Rós - Takk", "01 Takk.flac", "02 Glósóli.FLAC"];
-        foreach (var text in new[] { "rg:none", "rg:partial", "year:2", "artist:s", "genre:e" })
-            Assert.Empty(Find(text).Intersect(unread));
-        Assert.Equal(["Glove.mp3", "lovely.opus", "untitled.flac"], Find("rg:none"));
+        Assert.Empty(Find("takk"));
+        Assert.Empty(Find("glosoli"));
+        lib.Track(takk, "03 Hoppípolla.flac", title: "Hoppípolla", artist: "Sigur Rós");
+        lib.Track(takk, "04 Broken.flac", readError: "corrupt");  // tags that can't be read: never a result
+        Assert.Equal(["Sigur Rós - Takk"], Find("takk"));  // the folder, now holding a read song
+        Assert.Equal(["03 Hoppípolla.flac"], Find("hoppipolla"));
+        Assert.Empty(Find("broken"));
     }
 
     [Fact]

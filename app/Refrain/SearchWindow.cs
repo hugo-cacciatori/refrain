@@ -666,7 +666,11 @@ public sealed partial class SearchWindow : Window
                 Foreground = Ui.Brush(each.Online ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"),
             });
         if (library.Indexer.Busy) libraryLines.Children.Add(Ui.Secondary("Indexing…: the counts grow as the folders are read."));
-        libraryLines.Children.Add(Ui.Secondary("Manage them in … > Options… > Library."));
+        // Managing them is Options' Library page, opened there directly (Hugo, 2026-10-31).
+        var manage = Ui.Button("Manage…", "Open Options on the Library page: add, rescan or remove library folders");
+        manage.Margin = new Thickness(0, 6, 0, 0);
+        manage.Click += (_, _) => App.Instance.ShowOptions(null, "Library");
+        libraryLines.Children.Add(manage);
     }
 
     async Task PickFolder()

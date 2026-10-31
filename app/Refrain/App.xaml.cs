@@ -213,13 +213,14 @@ public partial class App : Application
 
     /// <summary>The one Options window, brought forward if already open; the File names example reads its first track
     /// from <paramref name="examplePath"/>.</summary>
-    public void ShowOptions(string? examplePath)
+    public void ShowOptions(string? examplePath, string? page = null)
     {
         if (options is null)
         {
             options = new OptionsWindow(settings, () => settings.Save(AppPaths.Settings), examplePath, () => Library);
             options.Closed += (_, _) => options = null;
         }
+        if (page is not null) options.Select(page);
         options.ShowWindow();
     }
 }

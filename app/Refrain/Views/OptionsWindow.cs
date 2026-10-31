@@ -98,6 +98,12 @@ public sealed partial class OptionsWindow : Window
         Ui.Fit(this);
     }
 
+    /// <summary>Selects a page by its name (the library strip's Manage…, SPEC §37); an unknown name changes nothing.</summary>
+    public void Select(string name)
+    {
+        if (builders.ContainsKey(name)) pages.SelectedItem = name;
+    }
+
     void ShowPage(string name)
     {
         content.Content = builders[name]();

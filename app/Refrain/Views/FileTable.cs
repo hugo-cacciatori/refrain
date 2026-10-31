@@ -82,10 +82,7 @@ public sealed partial class FileTable : Grid, IRowList
                 view.Show(this, row);
             args.Handled = true;
         };
-        List.DoubleTapped += (_, e) =>
-        {
-            if (RowAt(List, e.OriginalSource) is { } row) Activated?.Invoke(row);
-        };
+        DoubleClicks.Attach(List, row => Activated?.Invoke(row));
         List.KeyDown += OnKeyDown;
         List.SelectionChanged += (_, _) =>
         {
@@ -221,11 +218,14 @@ public sealed partial class FileTable : Grid, IRowList
 
     /// <summary>The row under the pointer, through its list item: the rows' data binding is skipped (they are filled
     /// in ContainerContentChanging), so their DataContext can't be relied on.</summary>
-    internal static FileRow? RowAt(ListView list, object source)
+    /// <summary>The row under a pointer, by the clicked element's data, not its container's type: in the Native AOT build
+    /// the containers come back as SelectorItem, never ListViewItem (measured 2026-10-31), so a type test never matched
+    /// and double clicks and right-clicks found no row.</summary>
+    internal static FileRow? RowAt(ListViewBase list, object source)
     {
-        var element = source as DependencyObject;
-        while (element is not null and not ListViewItem) element = VisualTreeHelper.GetParent(element);
-        return element is ListViewItem item ? list.ItemFromContainer(item) as FileRow : null;
+        for (var element = source as DependencyObject; element is not null && element != list; element = VisualTreeHelper.GetParent(element))
+            if (element is FrameworkElement { DataContext: FileRow row }) return row;
+        return null;
     }
 
     void OnKeyDown(object sender, KeyRoutedEventArgs e)
@@ -456,7 +456,7 @@ public sealed partial class FileTable : Grid, IRowList
         if (rebuildHeader) BuildHeader();
         if (List.ItemsPanelRoot is null) return;
         foreach (var child in List.ItemsPanelRoot.Children)
-            if (child is ListViewItem { ContentTemplateRoot: RowView view, Content: FileRow row })
+            if (child is ContentControl { ContentTemplateRoot: RowView view, Content: FileRow row })  // not ListViewItem: see RowAt
                 view.Show(this, row);
     }
 

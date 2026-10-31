@@ -72,6 +72,7 @@ public sealed partial class PreviewPanel : UserControl
         head.Children.Add(video);
         video.Message += message =>
         {
+            Log.Info($"Preview video: {message}");
             if (message != "error") return;
             // YouTube refused it (removed, not to be embedded): the audio excerpt instead.
             HideVideo();
@@ -298,7 +299,8 @@ public sealed partial class PreviewPanel : UserControl
     /// still shows it, it replaces the audio excerpt.</summary>
     async Task TryVideo(string artist, string title, int mine)
     {
-        if (artist.Length == 0 || title.Length == 0 || checkMuted) return;  // an agent's check stays off the network
+        // An agent's check stays off the network, unless it checks the videos (REFRAIN_CHECK_VIDEO).
+        if (artist.Length == 0 || title.Length == 0 || checkMuted && Environment.GetEnvironmentVariable("REFRAIN_CHECK_VIDEO") != "1") return;
         string? id;
         try
         {

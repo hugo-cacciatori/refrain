@@ -113,8 +113,8 @@ Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"; Comment: "Remo
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Search your music library and its lyrics."; Tasks: desktopicon
 
 [Run]
-; Unticked by default (Hugo, 2026-10-31; SPEC §37); as the user who ran the setup, not as administrator.
-Filename: "{app}\{#AppExe}"; Description: "Start Refrain"; Flags: nowait postinstall skipifsilent unchecked
+; Ticked by default (Hugo, 2026-10-31, after first trying it; SPEC §37); as the user who ran the setup, not as administrator.
+Filename: "{app}\{#AppExe}"; Description: "Start Refrain"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; The `refrain` keyword is gone (SPEC §36 "11."): its App Paths key, from earlier versions, is deleted.

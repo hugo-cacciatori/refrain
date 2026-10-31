@@ -55,10 +55,7 @@ public sealed partial class CardList : Grid, IRowList
             if (!quiet) SelectionChanged?.Invoke();
         };
         List.Tapped += (_, _) => Clicked?.Invoke();
-        List.DoubleTapped += (_, e) =>
-        {
-            if (FileTable.RowAt(List, e.OriginalSource) is { } row) Activated?.Invoke(row);
-        };
+        DoubleClicks.Attach(List, row => Activated?.Invoke(row));
         List.KeyDown += (_, e) =>
         {
             if (e.Key != VirtualKey.Enter || List.SelectedItem is not FileRow row) return;

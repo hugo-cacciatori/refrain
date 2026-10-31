@@ -35,13 +35,13 @@ public static class LibrarySearch
 
     static readonly string AudioList = string.Join(", ", Formats.Audio.Select(e => $"'{e}'"));
 
-    /// <summary>The results: folders with songs below them (SPEC §37; not a root's top entry, whose name is the root
-    /// path) and audio files, read or not. A folder has songs when the subtree totals count some, or, before a scan has
-    /// counted them, when it holds an audio file itself.</summary>
+    /// <summary>The results (SPEC §37, Hugo 2026-10-31: only what is fully indexed): songs whose tags are read without
+    /// error, and folders holding such songs (not a root's top entry, whose name is the root path): the subtree totals
+    /// count some, or, before a scan has counted them, a read song of its own.</summary>
     static readonly string Results = "((e.is_dir = 1 AND e.parent_id IS NOT NULL AND (" +
         "EXISTS (SELECT 1 FROM folder_stats fs WHERE fs.entry_id = e.id AND fs.n_tracks > 0) OR " +
-        $"EXISTS (SELECT 1 FROM entries c WHERE c.parent_id = e.id AND c.ext IN ({AudioList})))) " +
-        $"OR e.ext IN ({AudioList}))";
+        "EXISTS (SELECT 1 FROM entries c JOIN tracks ct ON ct.entry_id = c.id WHERE c.parent_id = e.id AND ct.read_error IS NULL))) " +
+        $"OR (e.ext IN ({AudioList}) AND EXISTS (SELECT 1 FROM tracks rt WHERE rt.entry_id = e.id AND rt.read_error IS NULL)))";
 
     const string RgCount = "((t.rg_track_gain IS NOT NULL) + (t.rg_track_peak IS NOT NULL) + " +
                            "(t.rg_album_gain IS NOT NULL) + (t.rg_album_peak IS NOT NULL))";
