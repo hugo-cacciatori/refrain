@@ -218,13 +218,19 @@ public sealed partial class FileTable : Grid, IRowList
 
     /// <summary>The row under the pointer, through its list item: the rows' data binding is skipped (they are filled
     /// in ContainerContentChanging), so their DataContext can't be relied on.</summary>
-    /// <summary>The row under a pointer, by the clicked element's data, not its container's type: in the Native AOT build
-    /// the containers come back as SelectorItem, never ListViewItem (measured 2026-10-31), so a type test never matched
-    /// and double clicks and right-clicks found no row.</summary>
+    /// <summary>The row under a pointer, by the row's own view (<see cref="RowView"/>, <see cref="CardView"/>), which keeps
+    /// the result it shows. In the Native AOT build neither the containers' type (SelectorItem, never ListViewItem) nor
+    /// the elements' DataContext gave the row (both measured from Hugo's clicks, 2026-10-31).</summary>
     internal static FileRow? RowAt(ListViewBase list, object source)
     {
         for (var element = source as DependencyObject; element is not null && element != list; element = VisualTreeHelper.GetParent(element))
-            if (element is FrameworkElement { DataContext: FileRow row }) return row;
+            switch (element)
+            {
+                case RowView { Row: { } row }:
+                    return row;
+                case CardView { Row: { } card }:
+                    return card;
+            }
         return null;
     }
 

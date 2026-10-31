@@ -166,6 +166,7 @@ public sealed partial class SearchWindow : Window
             if (Offscreen && Environment.GetEnvironmentVariable("REFRAIN_CHECK_DISCOGRAPHY") is { Length: > 0 } track) await CheckDiscography(track);
             if (Offscreen && Environment.GetEnvironmentVariable("REFRAIN_CHECK_THEME") is "light" or "dark") await CheckTheme(root);
             if (Offscreen && Environment.GetEnvironmentVariable("REFRAIN_CHECK_PREVIEW") is { Length: > 0 } previewed) await CheckPreview(previewed);
+            if (Offscreen && Environment.GetEnvironmentVariable("REFRAIN_CHECK_ROWAT") is { Length: > 0 } query) await CheckRowAt(query);
         };
     }
 
@@ -608,6 +609,35 @@ public sealed partial class SearchWindow : Window
                 }
                 await Task.Delay(1000);
             }
+        }
+    }
+
+    /// <summary>An agent's off-screen check (SPEC §36 "7."), for the Native AOT build: searches <paramref name="query"/> in
+    /// both modes and finds the first result's row from a text inside it, as a click does (<see cref="FileTable.RowAt"/>).</summary>
+    async Task CheckRowAt(string query)
+    {
+        await Task.Delay(3000);  // the index is read
+        foreach (var each in new[] { SearchMode.Files, SearchMode.Lyrics })
+        {
+            SetMode(each);
+            searchBox.Text = query;
+            await RunSearch(inPlace: false);
+            await Task.Delay(1500);
+            ListViewBase list = each == SearchMode.Files ? results.List : cards.List;
+            static TextBlock? FirstText(DependencyObject parent)
+            {
+                for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    var child = VisualTreeHelper.GetChild(parent, i);
+                    if (child is TextBlock { Text.Length: > 0 } text) return text;
+                    if (FirstText(child) is { } deeper) return deeper;
+                }
+                return null;
+            }
+            var panel = list.ItemsPanelRoot;
+            var text = panel is null ? null : FirstText(panel);
+            var row = text is null ? null : FileTable.RowAt(list, text);
+            Log.Info($"Check row lookup in {each}: {(panel?.Children.Count ?? 0)} rows shown, a text \"{text?.Text}\", found {(row is null ? "nothing" : row.Name)}");
         }
     }
 

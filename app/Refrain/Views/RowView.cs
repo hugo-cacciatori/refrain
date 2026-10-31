@@ -17,8 +17,12 @@ public sealed partial class RowView : Grid
     readonly List<(string Key, TextBlock Text)> cells = [];
     FontIcon? icon;
 
+    /// <summary>The result this row shows (how a click finds it, <see cref="FileTable.RowAt"/>).</summary>
+    internal FileRow? Row { get; private set; }
+
     public void Show(FileTable owner, FileRow row)
     {
+        Row = row;
         if (table != owner || version != owner.LayoutVersion) Build(owner);
         Opacity = row.IsDir || row.IsAudio ? 1 : 0.6;  // non-audio files are dimmed (SPEC §5)
         if (icon is not null) icon.Glyph = row.IsDir ? "" : row.IsAudio ? "" : "";

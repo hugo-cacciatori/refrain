@@ -174,8 +174,12 @@ public sealed partial class CardView : StackPanel
         Children.Add(extract);
     }
 
+    /// <summary>The result this card shows (how a click finds it, <see cref="FileTable.RowAt"/>).</summary>
+    internal FileRow? Row { get; private set; }
+
     public void Show(FileRow row, Microsoft.UI.Xaml.Media.Brush highlight)
     {
+        Row = row;
         title.Text = row.Title ?? row.Name;
         sub.Text = string.Join(" · ", new[] { row.Artist, row.Album }.Where(s => !string.IsNullOrEmpty(s)));
         extract.Text = row.Extract;
