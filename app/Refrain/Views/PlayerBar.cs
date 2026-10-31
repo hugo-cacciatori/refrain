@@ -21,9 +21,9 @@ public sealed partial class PlayerBar : UserControl
         HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
         Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0), Padding = new Thickness(8, 4, 8, 4),
     };
-    readonly Button previous = Round("", "Previous song (or this one from its start)");
-    readonly Button play = Round("", "Play", 40);
-    readonly Button next = Round("", "Next song");
+    readonly Button previous = Round("", "Previous song (or this one from its start)");
+    readonly Button play = Round("", "Play", 40);
+    readonly Button next = Round("", "Next song");
     readonly Slider seek = new() { Minimum = 0, Maximum = 1, StepFrequency = 0.1, IsThumbToolTipEnabled = false, VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock elapsed = new() { FontSize = 11, VerticalAlignment = VerticalAlignment.Center, MinWidth = 36, TextAlignment = TextAlignment.Right };
     readonly TextBlock total = new() { FontSize = 11, VerticalAlignment = VerticalAlignment.Center, MinWidth = 36 };
@@ -60,9 +60,8 @@ public sealed partial class PlayerBar : UserControl
         middle.Children.Add(timeline);
 
         var sound = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-        sound.Children.Add(new FontIcon { Glyph = "", FontSize = 14 });
+        sound.Children.Add(new FontIcon { Glyph = "", FontSize = 14 });
         sound.Children.Add(volume);
-        ToolTipService.SetToolTip(volume, "Volume");
 
         var row = new Grid { ColumnSpacing = 12, Padding = new Thickness(4, 6, 12, 6) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -91,7 +90,12 @@ public sealed partial class PlayerBar : UserControl
         {
             if (!updating) player.Seek(TimeSpan.FromSeconds(e.NewValue));
         };
-        volume.ValueChanged += (_, e) => player.Volume = e.NewValue / 100;
+        volume.ValueChanged += (_, e) =>
+        {
+            player.Volume = e.NewValue / 100;
+            ToolTipService.SetToolTip(volume, $"Volume: {e.NewValue:0}%");
+        };
+        ToolTipService.SetToolTip(volume, $"Volume: {volume.Value:0}%");
         player.Changed += Refresh;
         player.Ticked += Tick;
         Refresh();
@@ -116,7 +120,7 @@ public sealed partial class PlayerBar : UserControl
         detail.Foreground = player.Notice is null ? Ui.Brush("TextFillColorSecondaryBrush") : Ui.Brush("SystemFillColorCautionBrush");
         song.IsEnabled = current is not null;
         foreach (var control in new Control[] { previous, play, next, seek }) control.IsEnabled = current is not null;
-        ((FontIcon)play.Content).Glyph = player.Playing ? "" : "";
+        ((FontIcon)play.Content).Glyph = player.Playing ? "" : "";  // pause, play
         ToolTipService.SetToolTip(play, player.Playing ? "Pause" : "Play");
         updating = true;
         seek.Maximum = Math.Max(1, player.Duration.TotalSeconds);

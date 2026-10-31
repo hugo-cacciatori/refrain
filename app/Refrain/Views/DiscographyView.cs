@@ -65,15 +65,15 @@ public sealed partial class DiscographyView : UserControl
         TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true,
     };
     readonly ScrollViewer lyricsScroll = new() { HorizontalScrollMode = ScrollMode.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden };
-    readonly Button previous = Arrow("", "Earlier album (Left)");
-    readonly Button next = Arrow("", "Later album (Right)");
+    readonly Button previous = Arrow("", "Earlier album (Left)");
+    readonly Button next = Arrow("", "Later album (Right)");
     readonly StackPanel links = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8, 4, 0, 0) };
     readonly HyperlinkButton back = new() { Content = "‹ Results" };
     readonly HyperlinkButton toLibrary = new() { Content = "Back to library" };
     readonly HyperlinkButton toArtist = new();
     readonly Button infoToggle = new()
     {
-        Content = new FontIcon { Glyph = "", FontSize = 14 }, Width = 34, Height = 34, Padding = new Thickness(0),
+        Content = new FontIcon { Glyph = "", FontSize = 14 }, Width = 34, Height = 34, Padding = new Thickness(0),
         CornerRadius = new CornerRadius(17), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
         Margin = new Thickness(0, 6, 10, 0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
     };
@@ -1343,7 +1343,7 @@ public sealed partial class DiscographyView : UserControl
         };
         if (target is null) return;
         e.Handled = true;
-        var item = new MenuFlyoutItem { Text = "Open in File Explorer", Icon = new FontIcon { Glyph = "" } };
+        var item = new MenuFlyoutItem { Text = "Open in File Explorer", Icon = new FontIcon { Glyph = "" } };
         item.Click += (_, _) => _ = Reveal(target);
         var menu = new MenuFlyout();
         menu.Items.Add(item);

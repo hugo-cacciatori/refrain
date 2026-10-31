@@ -30,7 +30,10 @@ public sealed partial class PreviewPanel : UserControl
     readonly TextBlock nowPlaying = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
     readonly Grid details = new() { ColumnSpacing = 12, RowSpacing = 3, Margin = new Thickness(16, 0, 16, 8) };
     readonly StackPanel folderBody = new() { Spacing = 3, Padding = new Thickness(16, 0, 16, 16) };
-    readonly ScrollViewer folderScroll = new() { HorizontalScrollMode = ScrollMode.Disabled };
+    readonly Border folderScroll = new();
+    // The whole preview scrolls as one (Hugo, 2026-10-31: it couldn't be scrolled): its head, the song's details and
+    // lyrics, a folder's lists; the Tidy section stays at the bottom.
+    readonly ScrollViewer scroll = new() { HorizontalScrollMode = ScrollMode.Disabled };
     readonly Grid songBody = new();
     readonly TextBlock empty = Ui.Secondary();
     // A music video, when the song has one (SPEC §37): it plays the excerpt instead of the audio, under the same rules.
@@ -83,21 +86,21 @@ public sealed partial class PreviewPanel : UserControl
         songBody.Children.Add(details);
         Grid.SetRow(lyrics, 1);
         songBody.Children.Add(lyrics);
-        folderScroll.Content = folderBody;
+        folderScroll.Child = folderBody;
 
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.Children.Add(head);
+        var page = new StackPanel();
+        page.Children.Add(head);
+        foreach (var body in new UIElement[] { songBody, folderScroll, empty }) page.Children.Add(body);
+        scroll.Content = page;
+        Grid.SetRowSpan(scroll, 2);
+        root.Children.Add(scroll);
         BuildTidy();
         Grid.SetRow(tidy, 2);
         root.Children.Add(tidy);
-        foreach (var body in new UIElement[] { songBody, folderScroll, empty })
-        {
-            Grid.SetRow((FrameworkElement)body, 1);
-            root.Children.Add(body);
-        }
         Content = root;
 
         sound.Click += (_, _) =>
@@ -134,7 +137,7 @@ public sealed partial class PreviewPanel : UserControl
 
     void ShowSound()
     {
-        sound.Content = new FontIcon { Glyph = settings.PreviewSound ? "" : "", FontSize = 14 };
+        sound.Content = new FontIcon { Glyph = settings.PreviewSound ? "" : "", FontSize = 14 };
         ToolTipService.SetToolTip(sound, settings.PreviewSound
             ? player.Playing ? "Previews have sound, but stay silent while the player plays. Click to mute every preview"
                              : "Previews play with sound. Click to mute every preview"
@@ -203,6 +206,7 @@ public sealed partial class PreviewPanel : UserControl
             foreach (var (label, value) in info.Fields.Where(f => f.Label is not ("Title" or "Artist" or "Album")))
                 AddDetail(label, value);
             Show(songBody);
+            scroll.ChangeView(null, 0, null, disableAnimation: true);
             HideTidy();
             _ = lyrics.Load(row.Id);
             HideVideo();
@@ -257,7 +261,7 @@ public sealed partial class PreviewPanel : UserControl
                 break;
         }
         Show(folderScroll);
-        folderScroll.ChangeView(null, 0, null, disableAnimation: true);
+        scroll.ChangeView(null, 0, null, disableAnimation: true);
         if (folder.Path is { } tidyPath) PlanTidy(tidyPath);
         else HideTidy();
         // An album or an artist plays an excerpt of one of its songs, chosen at random; any other folder none (SPEC §37).

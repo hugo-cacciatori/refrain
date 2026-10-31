@@ -118,11 +118,17 @@ public sealed partial class SearchWindow : Window
 
         var root = new Grid { Padding = new Thickness(8, 0, 8, 0), AllowDrop = true };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.Children.Add(SearchRow());
+        // The library's folders, shown or hidden by the Library button (SPEC §37 "After Hugo's first look").
+        libraryStrip.Child = libraryLines;
+        libraryStrip.Visibility = settings.LibraryStripOpen ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetRow(libraryStrip, 1);
+        root.Children.Add(libraryStrip);
         var body = Body();
-        Grid.SetRow(body, 1);
+        Grid.SetRow(body, 2);
         root.Children.Add(body);
         var statusRow = new Grid();
         statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -137,11 +143,11 @@ public sealed partial class SearchWindow : Window
         Grid.SetColumn(lyricsRetry, 3);
         statusRow.Children.Add(lyricsRetry);
         ToolTipService.SetToolTip(lyricsRetry, "Try LRCLIB again now");
-        Grid.SetRow(statusRow, 2);
+        Grid.SetRow(statusRow, 3);
         root.Children.Add(statusRow);
         // The player's bar, below everything, always there (SPEC §37).
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        Grid.SetRow(playerBar, 3);
+        Grid.SetRow(playerBar, 4);
         root.Children.Add(playerBar);
         Content = root;
         Ui.Background(root);
@@ -211,6 +217,17 @@ public sealed partial class SearchWindow : Window
         field.Children.Add(magnifier);
         row.Children.Add(field);
 
+        // The library strip's button, before … (SPEC §37).
+        libraryButton.IsChecked = settings.LibraryStripOpen;
+        ToolTipService.SetToolTip(libraryButton, "Show or hide the library's folders");
+        libraryButton.Click += (_, _) =>
+        {
+            settings.LibraryStripOpen = libraryButton.IsChecked == true;
+            libraryStrip.Visibility = settings.LibraryStripOpen ? Visibility.Visible : Visibility.Collapsed;
+            if (settings.LibraryStripOpen) _ = ShowLibraryStrip();
+        };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 0), Spacing = 4 };
+        buttons.Children.Add(libraryButton);
         var more = new Button { Content = new FontIcon { Glyph = "", FontSize = 16 }, Padding = new Thickness(8), Margin = new Thickness(8, 0, 0, 0) };
         ToolTipService.SetToolTip(more, "More");
         var menu = new MenuFlyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };  // down from the button, never up (Hugo, 2026-10-29)
@@ -226,8 +243,10 @@ public sealed partial class SearchWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         Add("Exit", Close);
         more.Flyout = menu;
-        Grid.SetColumn(more, 1);
-        row.Children.Add(more);
+        more.Margin = new Thickness(0);
+        buttons.Children.Add(more);
+        Grid.SetColumn(buttons, 1);
+        row.Children.Add(buttons);
         return row;
     }
 
@@ -304,6 +323,7 @@ public sealed partial class SearchWindow : Window
     {
         library.Indexer.FolderChanged += _ => ui.TryEnqueue(Changed);
         library.Indexer.ScanFinished += () => ui.TryEnqueue(Changed);
+        library.Indexer.ScanFinished += () => ui.TryEnqueue(() => _ = ShowLibraryStrip());
         library.Indexer.ScanFinished += () => ui.TryEnqueue(() => _ = AtScanEnd());
         library.Indexer.Progress += (folders, read, busy) => ui.TryEnqueue(() =>
         {
@@ -351,6 +371,7 @@ public sealed partial class SearchWindow : Window
         cards.SelectionChanged += () => _ = PreviewOf(cards.SelectedRows);
         cards.Clicked += () => _ = PreviewOf(cards.SelectedRows);
         cards.Activated += row => _ = OpenInView(row);
+        WatchClicks();
         // The discography view covers the preview: its excerpt stops.
         discography.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) =>
         {
@@ -441,6 +462,7 @@ public sealed partial class SearchWindow : Window
 
     void ShowMenu(IReadOnlyList<FileRow> rows, UIElement anchor, Windows.Foundation.Point point)
     {
+        Log.Info($"Clicks: the results' menu for {rows.Count} rows");
         if (rows.Count == 0) return;
         var menu = new MenuFlyout();
         var reveal = new MenuFlyoutItem { Text = "Open in File Explorer", IsEnabled = rows.Count == 1 };
@@ -454,14 +476,48 @@ public sealed partial class SearchWindow : Window
         if (await Read(conn => Queries.PathOf(conn, row.Id)) is { } path) Shell.Reveal(path, select: !row.IsDir);
     }
 
+    /// <summary>Temporary (Hugo, 2026-10-31: double clicks and right-clicks on results did nothing, though the handlers work
+    /// when called): logs what reaches the results lists, handled or not, and where the focus goes just after a
+    /// selection. To remove once the cause is found.</summary>
+    void WatchClicks()
+    {
+        foreach (var (name, list) in new (string, ListViewBase)[] { ("files", results.List), ("lyrics", cards.List) })
+        {
+            list.AddHandler(UIElement.DoubleTappedEvent, new DoubleTappedEventHandler((_, e) =>
+                Log.Info($"Clicks: double click on the {name} results, on {e.OriginalSource?.GetType().Name}, handled {e.Handled}")), true);
+            list.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler((_, e) =>
+                Log.Info($"Clicks: right-click on the {name} results, on {e.OriginalSource?.GetType().Name}, handled {e.Handled}")), true);
+            list.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, e) =>
+                Log.Info($"Clicks: pointer pressed on the {name} results, handled {e.Handled}")), true);
+            list.ContextRequested += (_, _) => Log.Info($"Clicks: context menu asked on the {name} results");
+        }
+        long watchUntil = 0;
+        results.SelectionChanged += () => watchUntil = Environment.TickCount64 + 3000;
+        cards.SelectionChanged += () => watchUntil = Environment.TickCount64 + 3000;
+        FocusManager.GotFocus += (_, e) =>
+        {
+            if (Environment.TickCount64 < watchUntil) Log.Info($"Clicks: focus went to {e.NewFocusedElement?.GetType().Name}");
+        };
+    }
+
     /// <summary>A result's double click (SPEC §37): the discography view at its level, a song in its album, an album, an
     /// artist, or the library with a folder's artists lit; the results stay as they are underneath.</summary>
     async Task OpenInView(FileRow row)
     {
-        var found = await Read(conn => row.IsDir ? ArtistAlbums.ForFolder(conn, row.Id)
-            : (ArtistAlbums.For(conn, row.Id), false, (IReadOnlyList<string>)[]));
-        if (!await ShowInView(found))
-            Status(row.IsDir ? $"{row.Name} has no songs with an artist in their tags." : $"{row.Name} has no artist in its tags, so it has no discography to show.");
+        Log.Info($"Clicks: opening {row.Name} in the view");
+        try
+        {
+            var found = await Read(conn => row.IsDir ? ArtistAlbums.ForFolder(conn, row.Id)
+                : (ArtistAlbums.For(conn, row.Id), false, (IReadOnlyList<string>)[]));
+            if (!await ShowInView(found))
+                Status(row.IsDir ? $"{row.Name} has no songs with an artist in their tags." : $"{row.Name} has no artist in its tags, so it has no discography to show.");
+        }
+        catch (Exception e)
+        {
+            // A fire-and-forget task's failure would otherwise vanish: say it and log it.
+            Log.Error($"Opening {row.Name} in the discography view failed", e);
+            Status($"{row.Name} couldn't be opened: {e.Message}");
+        }
     }
 
     /// <summary>Opens the view on what was found; false when there was nothing to open.</summary>
@@ -539,9 +595,15 @@ public sealed partial class SearchWindow : Window
                 if (await Read(conn => Queries.Find(conn, path)) is { Exact: true } hit && !library.Indexer.Busy)
                 {
                     var isDir = await Read(conn => Queries.IsDir(conn, hit.Id));
-                    await preview.ShowRow(new FileRow { Id = hit.Id, Name = Path.GetFileName(path), IsDir = isDir });
+                    var row = new FileRow { Id = hit.Id, Name = Path.GetFileName(path), IsDir = isDir };
+                    await preview.ShowRow(row);
                     await Task.Delay(4000);
                     Log.Info($"Check preview of {Path.GetFileName(path)}: {preview.Describe()}");
+                    // And its double click.
+                    await OpenInView(row);
+                    await Task.Delay(1500);
+                    Log.Info($"Check double click on {row.Name}: view {discography.Visibility}, status \"{status.Text}\"");
+                    CloseDiscography();
                     break;
                 }
                 await Task.Delay(1000);
@@ -576,6 +638,35 @@ public sealed partial class SearchWindow : Window
     {
         libraryEmpty = await Read(conn => Roots.All(conn).Count == 0);
         ShowPage();
+        await ShowLibraryStrip();
+    }
+
+    readonly ToggleButton libraryButton = new() { Content = new FontIcon { Glyph = "\uE8F1", FontSize = 16 }, Padding = new Thickness(8) };
+    readonly Border libraryStrip = new()
+    {
+        CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(0, 0, 0, 8),
+        Background = Ui.Resource<Brush>("LayerFillColorDefaultBrush"), BorderBrush = Ui.Resource<Brush>("CardStrokeColorDefaultBrush"),
+    };
+    readonly StackPanel libraryLines = new() { Spacing = 2 };
+
+    /// <summary>The library strip (SPEC §37): each library folder, its songs as the last scan counted them, offline when
+    /// it can't be reached; "Indexing…" while the index reads. Only while it is shown.</summary>
+    async Task ShowLibraryStrip()
+    {
+        if (!settings.LibraryStripOpen) return;
+        var roots = await Read(Roots.WithSongs);
+        libraryLines.Children.Clear();
+        if (roots.Count == 0)
+            libraryLines.Children.Add(Ui.Secondary("No library folders yet: … > Add a folder…"));
+        foreach (var (each, songs) in roots)
+            libraryLines.Children.Add(new TextBlock
+            {
+                Text = $"{each.Path}  ·  {(songs == 1 ? "1 song" : $"{songs:N0} songs")}{(each.Online ? "" : "  ·  offline")}",
+                IsTextSelectionEnabled = true, TextTrimming = TextTrimming.CharacterEllipsis,
+                Foreground = Ui.Brush(each.Online ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"),
+            });
+        if (library.Indexer.Busy) libraryLines.Children.Add(Ui.Secondary("Indexing…: the counts grow as the folders are read."));
+        libraryLines.Children.Add(Ui.Secondary("Manage them in … > Options… > Library."));
     }
 
     async Task PickFolder()

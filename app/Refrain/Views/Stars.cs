@@ -25,8 +25,8 @@ public sealed partial class Stars : UserControl
         for (var i = 0; i < 5; i++)
         {
             var star = new Grid { Width = Size, Height = Size, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
-            star.Children.Add(new FontIcon { Glyph = "", FontSize = Size - 2, Foreground = Ui.Brush("TextFillColorSecondaryBrush") });
-            filled[i] = new FontIcon { Glyph = "", FontSize = Size - 2, Foreground = Ui.Brush("AccentFillColorDefaultBrush") };
+            star.Children.Add(new FontIcon { Glyph = "", FontSize = Size - 2, Foreground = Ui.Brush("TextFillColorSecondaryBrush") });
+            filled[i] = new FontIcon { Glyph = "", FontSize = Size - 2, Foreground = Ui.Brush("AccentFillColorDefaultBrush") };
             star.Children.Add(filled[i]);
             var place = i;
             star.Tapped += (_, e) =>

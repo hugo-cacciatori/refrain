@@ -26,6 +26,12 @@ public static class Roots
         return roots;
     }
 
+    /// <summary>Each library folder with its songs as the last scan counted them (its top folder's subtree totals), for
+    /// the Search window's library strip (SPEC §37).</summary>
+    public static List<(Root Root, long Songs)> WithSongs(SqliteConnection conn) =>
+        All(conn).Select(r => (r, Queries.TopEntry(conn, r.Id) is { } top &&
+            conn.Scalar("SELECT n_tracks FROM folder_stats WHERE entry_id = $id", null, ("$id", top)) is long n ? n : 0L)).ToList();
+
     /// <summary>Sorts the path out on disk, then registers it if the rule allows. Touches the file system: never
     /// call it on the UI thread.</summary>
     public static AddResult Add(SqliteConnection conn, SqliteTransaction tx, string rawPath)

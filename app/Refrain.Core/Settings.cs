@@ -35,6 +35,8 @@ public sealed class Settings
     public double PanelWidth { get; set; } = 380;
     public double LyricsTextSize { get; set; } = 14;
     public string SearchMode { get; set; } = "files";
+    /// <summary>The Search window's library strip is shown (SPEC §37, hidden by default).</summary>
+    public bool LibraryStripOpen { get; set; }
     /// <summary>The discography view's info panel was closed (SPEC §37), counted only by the version that recorded it
     /// (<see cref="InfoPanelClosedIn"/>): remembered between sessions, not between installs.</summary>
     public bool InfoPanelClosed { get; set; }

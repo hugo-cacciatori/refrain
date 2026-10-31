@@ -21,7 +21,7 @@ public sealed class DateLookup : IDisposable
     readonly MusicBrainzClient client = App.Instance.MusicBrainz;
     readonly HashSet<(string, string)> asked = [];
     readonly HashSet<string> namesakesChecked = [];
-    bool quietScans, running;
+    bool quietScans, quietAsk, running;
 
     /// <summary>The albums the user declined a date for this session ("artist key|album key").</summary>
     public HashSet<string> Declined { get; } = [];
@@ -46,7 +46,7 @@ public sealed class DateLookup : IDisposable
     /// <summary>A scan ended (the indexer idle): one popup listing every undated album not asked about yet this session.</summary>
     public async Task AskAtScanEnd()
     {
-        if (running) return;
+        if (running || quietAsk) return;
         var albums = await Read(Dates.Undated);
         if (albums.All(a => asked.Contains((a.ArtistKey, a.AlbumKey)))) return;
         foreach (var album in albums) asked.Add((album.ArtistKey, album.AlbumKey));
@@ -63,7 +63,10 @@ public sealed class DateLookup : IDisposable
         body.Children.Add(new TextBlock { Text = text + " Look them up on MusicBrainz?", TextWrapping = TextWrapping.Wrap });
         body.Children.Add(new ScrollViewer { Content = list, MaxHeight = 260 });
         body.Children.Add(Ui.Secondary("Each date found is written only after you say yes, album by album."));
+        var quiet = new CheckBox { Content = "Don't remind me until Refrain closes" };
+        body.Children.Add(quiet);
         var answer = await Ask("Dates", body, "Look them up", null, "Not now");
+        quietAsk |= answer is not null && quiet.IsChecked == true;
         if (answer is null) foreach (var album in albums) asked.Remove((album.ArtistKey, album.AlbumKey));  // ask again later
         if (answer == ContentDialogResult.Primary) await LookUp(albums, fromScan: true);
     }
