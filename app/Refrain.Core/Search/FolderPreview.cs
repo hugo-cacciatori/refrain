@@ -56,7 +56,7 @@ public sealed record FolderPreview(PreviewKind Kind, string Name, string? Artist
         var kind = albums.Count == 1 && albums[0].Key.Length > 0 ? PreviewKind.Album
             : artistKeys.Count == 1 && albums.Count > 1 ? PreviewKind.Artist
             : PreviewKind.Other;
-        static string? Year(string? date) => date is { Length: >= 4 } && date[..4].All(char.IsAsciiDigit) ? date[..4] : null;
+        static string? Year(string? date) => Dates.Dates.Year(date);
         var path = Queries.PathOf(conn, folderId);
         var folderName = System.IO.Path.GetFileName(path?.TrimEnd('\\') ?? "") is { Length: > 0 } n ? n : path ?? "";
         var name = kind switch

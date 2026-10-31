@@ -33,6 +33,7 @@ public sealed partial class DiscographyView : UserControl
     readonly Core.Library index;
     readonly Settings settings;
     readonly Player player;
+    readonly DateLookup dates;
     readonly Stars songStars = new(App.Instance.Ratings) { Margin = new Thickness(0, 0, 0, 4) };
     // The shown song's synced lyrics, one block per line, and the line lit as it is sung (SPEC §37).
     readonly StackPanel lyricsLines = new() { Spacing = 6 };
@@ -110,8 +111,10 @@ public sealed partial class DiscographyView : UserControl
     double H => view.ActualHeight;
     bool ZoomedIn => level == Level.Album;
 
-    public DiscographyView(Core.Library index, Settings settings, Player player)
+    public DiscographyView(Core.Library index, Settings settings, Player player, DateLookup dates)
     {
+        this.dates = dates;
+        dates.Changed += () => _ = Reload();
         this.index = index;
         this.settings = settings;
         this.player = player;
@@ -282,32 +285,56 @@ public sealed partial class DiscographyView : UserControl
         DrawAlbum();
     }
 
-    /// <summary>The artist on the left, the albums to its right along soft branches, staggered, every one on screen.</summary>
+    /// <summary>The artist on the left; the dated albums to its right, earliest first, staggered, the first on a soft branch
+    /// from the artist and each joined to the next by a thin light line; the undated ones (strays, SPEC §37) floating
+    /// apart along the bottom, unconnected, a yellow "!" on those whose date was declined. Every one on screen.</summary>
     void DrawOverview()
     {
         overview.Children.Clear();
         albumSpots.Clear();
-        double width = W, height = H, middle = height / 2;
-        var artistSize = Math.Clamp(height * 0.3, 70, 130);
-        var artistCenter = new Point(28 + artistSize / 2, middle);
+        double width = W, height = H;
         var count = data!.Albums.Count;
+        var dated = data.Albums.Count(a => a.Year is not null);
+        var strays = count - dated;
+        var middle = dated == 0 ? height * 0.45 : strays > 0 ? height * 0.4 : height / 2;
+        var artistSize = Math.Clamp(height * 0.3, 70, 130);
+        var artistCenter = new Point(28 + artistSize / 2, height / 2);
         var left = artistCenter.X + artistSize / 2 + 50;
-        var spacing = Math.Max(1, (width - left - 40) / count);
-        var radius = Math.Clamp(Math.Min(spacing * 0.4, height * 0.15), 18, 60);
-        for (var i = 0; i < count; i++)
+        var spacing = Math.Max(1, (width - left - 40) / Math.Max(1, dated));
+        var radius = Math.Clamp(Math.Min(spacing * 0.4, height * (strays > 0 && dated > 0 ? 0.11 : 0.15)), 18, 60);
+        var straySpacing = Math.Max(1, (width - left - 40) / Math.Max(1, strays));
+        var strayRadius = Math.Clamp(Math.Min(straySpacing * 0.36, height * (dated > 0 ? 0.09 : 0.15)), 16, 50);
+        int datedAt = 0, strayAt = 0;
+        foreach (var each in data.Albums)
         {
-            var center = new Point(left + spacing * (i + 0.5),
-                middle + (count > 1 ? Stagger[i % Stagger.Length] * height : 0));
-            center.Y = Math.Clamp(center.Y, radius + 40, height - radius - 30);
-            albumSpots.Add((center, radius));
-            var branch = new Microsoft.UI.Xaml.Shapes.Path
+            Point center;
+            if (each.Year is not null)
             {
-                Stroke = new SolidColorBrush(p.Line),
-                StrokeThickness = 1.2,
-                Data = Curve(new Point(artistCenter.X + artistSize / 2, artistCenter.Y), new Point(center.X - radius, center.Y)),
-                IsHitTestVisible = false,
-            };
-            overview.Children.Add(branch);
+                center = new Point(left + spacing * (datedAt + 0.5), middle + (dated > 1 ? Stagger[datedAt % Stagger.Length] * height * (strays > 0 ? 0.6 : 1) : 0));
+                center.Y = Math.Clamp(center.Y, radius + 40, height - radius - 30);
+                albumSpots.Add((center, radius));
+                datedAt++;
+            }
+            else
+            {
+                // A stray: along the bottom when there are dated albums, scattered across when none is.
+                var y = dated > 0 ? height - strayRadius - 44 + Stagger[strayAt % Stagger.Length] * 40
+                                  : middle + Stagger[strayAt % Stagger.Length] * height;
+                center = new Point(left + straySpacing * (strayAt + 0.5), Math.Clamp(y, strayRadius + 40, height - strayRadius - 30));
+                albumSpots.Add((center, strayRadius));
+                strayAt++;
+            }
+        }
+        var datedSpots = albumSpots.Where((_, i) => data.Albums[i].Year is not null).ToList();
+        for (var i = 0; i < datedSpots.Count; i++)
+        {
+            var (center, r) = datedSpots[i];
+            var from = i == 0 ? new Point(artistCenter.X + artistSize / 2, artistCenter.Y) : new Point(datedSpots[i - 1].Center.X + datedSpots[i - 1].Radius, datedSpots[i - 1].Center.Y);
+            overview.Children.Add(new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Stroke = new SolidColorBrush(p.Line), StrokeThickness = i == 0 ? 1.2 : 0.8, Opacity = i == 0 ? 1 : 0.7,
+                Data = Curve(from, new Point(center.X - r, center.Y)), IsHitTestVisible = false,
+            });
         }
         var artist = Labelled(artistSize, data.Artist, null, 15);
         Place(overview, artist, artistCenter, artistSize);
@@ -326,18 +353,38 @@ public sealed partial class DiscographyView : UserControl
                     HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(0, radius2 * 0.3, radius2 * 0.3, 0),
                 });
-            Place(overview, bubble, center, radius2 * 2);
-            ToolTipService.SetToolTip(bubble, $"{each.Name}{(each.Year is null ? "" : $" ({each.Year})")} · {each.Songs.Count} songs · double-click to open");
             var index2 = i;
+            if (each.Year is null)
+            {
+                bubble.Opacity = 0.85;
+                if (dates.Declined.Contains(DateLookup.KeyOf(data.Key, each.Key)))
+                {
+                    var badge = new Border
+                    {
+                        Width = 18, Height = 18, CornerRadius = new CornerRadius(9), Background = Ui.Brush("SystemFillColorCautionBrush"),
+                        HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+                        Child = new TextBlock { Text = "!", FontWeight = FontWeights.Bold, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+                    };
+                    ToolTipService.SetToolTip(badge, "No date: open its date in the info panel");
+                    badge.Tapped += (_, e) =>
+                    {
+                        e.Handled = true;
+                        OpenDate(index2);
+                    };
+                    bubble.Children.Add(badge);
+                }
+            }
+            Place(overview, bubble, center, radius2 * 2);
+            ToolTipService.SetToolTip(bubble, $"{each.Name}{(each.Year is null ? " (no date)" : $" ({each.Year})")} · {each.Songs.Count} songs · double-click to open");
             bubble.DoubleTapped += (_, _) => ZoomIn(index2);
-            Bubbles.Drift(bubble, 5, 10 + i);
+            Bubbles.Drift(bubble, each.Year is null ? 8 : 5, 10 + i);
             if (!inside)
             {
                 var label = new TextBlock
                 {
                     Text = each.Year is null ? each.Name : $"{each.Name}\n{each.Year}",
                     FontSize = 11, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
-                    Width = Math.Max(70, spacing - 6), Foreground = new SolidColorBrush(p.Text), IsHitTestVisible = false,
+                    Width = Math.Max(70, (each.Year is null ? straySpacing : spacing) - 6), Foreground = new SolidColorBrush(p.Text), IsHitTestVisible = false,
                 };
                 Canvas.SetLeft(label, center.X - label.Width / 2);
                 Canvas.SetTop(label, center.Y + radius2 + 16);
@@ -809,7 +856,11 @@ public sealed partial class DiscographyView : UserControl
         Transition(mapLayer, from, center, zoomingIn: false, () => SetLevel(Level.Library));
     }
 
-    void ZoomIn(int index2)
+    void ZoomIn(int index2) => ZoomIn(index2, ask: true);
+
+    /// <summary>Into an album; a stray (no date) asks MusicBrainz again, even after "Don't remind me" (SPEC §37), unless
+    /// its "!" badge led here, to its date in the info panel.</summary>
+    void ZoomIn(int index2, bool ask)
     {
         if (moving || data is null) return;
         Quiet();
@@ -817,7 +868,38 @@ public sealed partial class DiscographyView : UserControl
         song = 0;
         DrawAlbum();
         var (center, _) = albumSpots[index2];
-        Transition(overview, albumLayer, center, zoomingIn: true, () => SetLevel(Level.Album));
+        Transition(overview, albumLayer, center, zoomingIn: true, () =>
+        {
+            SetLevel(Level.Album);
+            if (ask) AskStray();
+        });
+    }
+
+    void AskStray()
+    {
+        if (data is null || data.Albums[album].Year is not null || SearchWindow.Offscreen) return;
+        _ = dates.LookUpOne(data.Key, data.Albums[album].Key);
+    }
+
+    /// <summary>A declined stray's "!": its album, with the info panel open on its date.</summary>
+    void OpenDate(int index2)
+    {
+        if (panel.Visibility != Visibility.Visible) TogglePanel();
+        ZoomIn(index2, ask: false);
+    }
+
+    /// <summary>The artist read again (dates written): same level, same album and song where they still are.</summary>
+    async Task Reload()
+    {
+        if (data is not { } shown) return;
+        var keepAlbum = shown.Albums[album].Key;
+        var keepSong = shown.Albums[album].Songs.ElementAtOrDefault(song)?.Id;
+        if (await Read(conn => ArtistAlbums.ForArtist(conn, shown.Key, keepSong)) is not { } fresh || data != shown) return;
+        data = fresh;
+        album = Math.Max(0, fresh.Albums.ToList().FindIndex(a => a.Key == keepAlbum));
+        song = Math.Max(0, fresh.Albums[album].Songs.ToList().FindIndex(x => x.Id == keepSong));
+        Layout();
+        _ = RefreshPanel();
     }
 
     void ZoomOut()
@@ -884,7 +966,11 @@ public sealed partial class DiscographyView : UserControl
             song = 0;
             DrawAlbum();
             _ = RefreshPanel();
-            Run(Slide(albumContent, step * 60, 0, 0, 1), () => moving = false);
+            Run(Slide(albumContent, step * 60, 0, 0, 1), () =>
+            {
+                moving = false;
+                AskStray();
+            });
         });
     }
 
@@ -1040,6 +1126,27 @@ public sealed partial class DiscographyView : UserControl
         });
         // The song's rating and note, as in the preview (SPEC §37).
         songStars.Load(ratingKey);
+        // An undated album: its date, to look up or type in (where the "!" badge leads, SPEC §37).
+        if (level == Level.Album && data is { } dated && dated.Albums[album].Year is null)
+        {
+            var date = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 8) };
+            date.Children.Add(new TextBlock { Text = "Date", FontSize = 11, Foreground = new SolidColorBrush(p.Secondary) });
+            date.Children.Add(new TextBlock
+            {
+                Text = "Not every song of this album has a date, so it floats apart from the others.", FontSize = 13, TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(p.Text),
+            });
+            var lookUp = Ui.Button("Look it up on MusicBrainz", "Ask MusicBrainz for its date; nothing is written until you say yes");
+            var typeIn = Ui.Button("Type it in…", "Open its tracks in Edit tags, to type the date and save it");
+            var (artistKey, albumKey) = (dated.Key, dated.Albums[album].Key);
+            lookUp.Click += (_, _) => _ = dates.LookUpOne(artistKey, albumKey);
+            typeIn.Click += (_, _) => _ = dates.TypeIn(artistKey, albumKey);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            buttons.Children.Add(lookUp);
+            buttons.Children.Add(typeIn);
+            date.Children.Add(buttons);
+            panelBody.Children.Add(date);
+        }
         foreach (var (label, value) in fields)
         {
             if (label == "Song" && ratingKey is not null)

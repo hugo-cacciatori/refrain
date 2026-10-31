@@ -37,6 +37,10 @@ ready for a search.
   skips those songs if you choose that in Options. Options can also mark which songs have ReplayGain tags, and have
   the player apply them (album gain, or track gain). When the library has albums without ReplayGain tags, Refrain
   offers once to run ReplayGain on them all.
+- **Dates** from [MusicBrainz](https://musicbrainz.org): when albums have no date, or not on every song, Refrain
+  offers to look them up and writes a date only after you say yes, choosing the year yourself when an album had
+  several prints. An undated album floats apart in the discography view until it gets one; a date typed in Edit tags
+  can go to the album's other songs too. Only the artist's and album's names are sent.
 - **The Search window**, over your whole library. Type any part of a folder or file name, a title, artist, album or
   lyric line; accents and case are ignored, and filters such as `artist:`, `year:`, `ext:` or `lrclib:notfound`
   narrow it. A click on a result previews it on the right while about 30 seconds of it play (silent while the player

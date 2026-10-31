@@ -90,7 +90,9 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
                     s.Status == LyricsEntry.Found && !string.IsNullOrWhiteSpace(s.Synced) ? s.Synced : null,
                     ReplayGain.Missing.Gain(s.TrackGain), ReplayGain.Missing.Gain(s.AlbumGain)))
                 .ToList();
-            var year = group.Select(s => Year(s.Date)).Where(y => y is not null).Order(StringComparer.Ordinal).FirstOrDefault();
+            // An album is dated when every song is (SPEC §37: a partly dated album counts as undated, a stray).
+            var years = group.Select(s => Year(s.Date)).ToList();
+            var year = years.All(y => y is not null) ? years.Order(StringComparer.Ordinal).First() : null;
             var name = group.Key.Length > 0 ? Names.Shown(group.Select(s => Names.WithoutMarkers(s.Album))) : "Other songs";
             return new ArtistAlbum(group.Key, name, year, songs);
         })
@@ -183,8 +185,7 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
     }
 
     /// <summary>The year at the start of a date tag ("1997-09-22", "1997"), or null.</summary>
-    static string? Year(string? date) =>
-        date is { Length: >= 4 } && date[..4].All(char.IsAsciiDigit) ? date[..4] : null;
+    static string? Year(string? date) => Dates.Dates.Year(date);
 
     static string? Text(string? status, string? plain) =>
         status == LyricsEntry.Found && !string.IsNullOrWhiteSpace(plain) ? plain.Replace("\r\n", "\n").Trim() : null;

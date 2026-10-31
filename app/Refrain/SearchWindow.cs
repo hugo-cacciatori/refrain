@@ -60,6 +60,7 @@ public sealed partial class SearchWindow : Window
     readonly Player player;
     readonly PlayerBar playerBar;
     readonly PreviewPanel preview;
+    readonly DateLookup dates;
     readonly Grid resultsPage = new();
     readonly Border resultsCard;
     readonly Border lyricsCard;
@@ -87,7 +88,8 @@ public sealed partial class SearchWindow : Window
         lyrics = new LyricsPage(library, library.Lyrics, settings);
         player = new Player(settings, App.Instance.Locks);
         playerBar = new PlayerBar(player);
-        discography = new DiscographyView(library, settings, player);
+        dates = new DateLookup(library, () => Content.XamlRoot);
+        discography = new DiscographyView(library, settings, player, dates);
         preview = new PreviewPanel(library, settings, player, lyrics, App.Instance.Ratings);
         // The last mode used is kept; an unknown value reads as Files (SPEC §6 "Direction task 5").
         mode = settings.SearchMode == "lyrics" ? SearchMode.Lyrics : SearchMode.Files;
@@ -302,7 +304,7 @@ public sealed partial class SearchWindow : Window
     {
         library.Indexer.FolderChanged += _ => ui.TryEnqueue(Changed);
         library.Indexer.ScanFinished += () => ui.TryEnqueue(Changed);
-        library.Indexer.ScanFinished += () => ui.TryEnqueue(() => _ = AskReplayGain());
+        library.Indexer.ScanFinished += () => ui.TryEnqueue(() => _ = AtScanEnd());
         library.Indexer.Progress += (folders, read, busy) => ui.TryEnqueue(() =>
         {
             indexing.IsActive = busy;
@@ -645,11 +647,30 @@ public sealed partial class SearchWindow : Window
     /// without ReplayGain tags that weren't asked about yet this session: run ReplayGain on all of them, one window
     /// measuring them one after another, each folder as an album (the right-click entry for several folders). "Don't
     /// remind me" lasts until Refrain closes. Albums a task holds are left out.</summary>
+    /// <summary>A scan ended: once the indexer stays idle, the ReplayGain question, then the dates' (SPEC §37), one after
+    /// the other.</summary>
+    async Task AtScanEnd()
+    {
+        if (atScanEnd) return;
+        atScanEnd = true;
+        try
+        {
+            await Task.Delay(1500);
+            if (library.Indexer.Busy) return;
+            await AskReplayGain();
+            await dates.AskAtScanEnd();
+        }
+        finally
+        {
+            atScanEnd = false;
+        }
+    }
+
+    bool atScanEnd;
+
     async Task AskReplayGain()
     {
         if (gainQuiet || askingGain) return;
-        await Task.Delay(1500);
-        if (library.Indexer.Busy || gainQuiet || askingGain) return;
         var options = settings.GetReplayGain();
         var albums = (await Read(conn => Core.ReplayGain.Missing.AlbumsWithoutTags(conn, options)))
             .Where(a => App.Instance.Locks.Conflict(a) is null).ToList();
@@ -885,6 +906,7 @@ public sealed partial class SearchWindow : Window
         settings.PlayerSeconds = settings.PlayerKeep && player.Current is not null ? player.Position.TotalSeconds : 0;
         player.Dispose();
         preview.Dispose();
+        dates.Dispose();
         settings.Save(AppPaths.Settings);
     }
 
