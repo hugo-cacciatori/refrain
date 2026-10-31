@@ -670,7 +670,7 @@ public sealed partial class SearchWindow : Window
             });
         if (library.Indexer.Busy) libraryLines.Children.Add(Ui.Secondary("Indexing…: the counts grow as the folders are read."));
         // Managing them is Options' Library page, opened there directly (Hugo, 2026-10-31).
-        var manage = Ui.Button("Manage…", "Open Options on the Library page: add, rescan or remove library folders");
+        var manage = Ui.Button("Manage…", "Open Options on the Library page: add or remove library folders");
         manage.Margin = new Thickness(0, 6, 0, 0);
         manage.Click += (_, _) => App.Instance.ShowOptions(null, "Library");
         libraryLines.Children.Add(manage);

@@ -53,7 +53,8 @@ ready for a search.
   an artist's albums, and for a folder a Tidy section that lights up when Tidy has something to do there, saying
   what and to which file, with Run Tidy. Rate songs there with up to five stars, by halves, and add a note; ratings stay in Refrain, not
   in your files, and follow the song's tags. A double click opens the result in the discography view; right-click it
-  to open it in File Explorer. The … button adds library folders, and Options' Library page rescans or removes them.
+  to open it in File Explorer. The … button adds library folders, and Options' Library page removes them; Refrain
+  keeps up with what changes in them by itself.
 - **Lyrics** from [LRCLIB](https://lrclib.net), looked up in the background for every track. The Search window's
   Lyrics mode shows the matching lines as cards; a click previews the song with its whole lyrics, with links to
   search Genius or Google when LRCLIB has none. Refrain never writes lyrics into your files.

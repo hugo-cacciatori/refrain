@@ -15,7 +15,7 @@ public sealed class Watcher : IDisposable
     readonly Timer timer;
     DateTime first;
 
-    /// <summary>A root that can't be watched; it relies on revalidation when a folder opens.</summary>
+    /// <summary>A root that can't be watched: its changes are read by the rescan at the next start.</summary>
     public event Action<string>? Unwatchable;
 
     public Watcher(Indexer indexer)

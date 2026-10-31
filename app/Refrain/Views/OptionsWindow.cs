@@ -169,8 +169,9 @@ public sealed partial class OptionsWindow : Window
 
     // -- the pages --
 
-    /// <summary>The library folders (SPEC §3, §36 "11."; the folder tree's menu before): each with Rescan and Remove…,
-    /// and Add a folder…. Not a setting: no Restore defaults, and Restore all defaults leaves it alone.</summary>
+    /// <summary>The library folders (SPEC §3, §36 "11."; the folder tree's menu before): each with Remove…, and Add a
+    /// folder…; no Rescan, as the index follows the disk by itself (SPEC §37). Not a setting: no Restore defaults, and
+    /// Restore all defaults leaves it alone.</summary>
     FrameworkElement LibraryPage()
     {
         var page = Page("Library", "The folders Refrain indexes and searches. Removing one only takes it out of the " +
@@ -186,14 +187,13 @@ public sealed partial class OptionsWindow : Window
 
         async Task Fill()
         {
-            var roots = await lib.Db.ReadAsync(conn => Roots.All(conn).Select(r => (Root: r, Top: Queries.TopEntry(conn, r.Id))).ToList());
+            var roots = await lib.Db.ReadAsync(conn => Roots.All(conn));
             rows.Children.Clear();
             if (roots.Count == 0) rows.Children.Add(Ui.Secondary("No folder yet."));
-            foreach (var (root, top) in roots)
+            foreach (var root in roots)
             {
                 var row = new Grid { ColumnSpacing = 8 };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 row.Children.Add(new TextBlock
                 {
@@ -201,15 +201,6 @@ public sealed partial class OptionsWindow : Window
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                 });
-                var rescan = Ui.Button("Rescan", "Read this folder again from the disk");
-                rescan.IsEnabled = top is not null;
-                rescan.Click += (_, _) =>
-                {
-                    if (top is { } id) lib.Indexer.Urgent(id);
-                    status.Text = $"Rescanning {root.Path}…";
-                };
-                Grid.SetColumn(rescan, 1);
-                row.Children.Add(rescan);
                 var remove = Ui.Button("Remove…", "Take this folder out of the library; nothing on disk changes");
                 remove.Click += async (_, _) =>
                 {
@@ -227,7 +218,7 @@ public sealed partial class OptionsWindow : Window
                     await lib.Remove(root.Id);
                     status.Text = $"{root.Path} was removed from the library.";
                 };
-                Grid.SetColumn(remove, 2);
+                Grid.SetColumn(remove, 1);
                 row.Children.Add(remove);
                 rows.Children.Add(row);
             }

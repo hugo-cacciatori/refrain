@@ -37,7 +37,7 @@ public sealed class Library : IDisposable
         Indexer.ScanFinished += Lyrics.Wake;
         Lyrics.Start();
         watcher = new Watcher(Indexer);
-        watcher.Unwatchable += root => Log.Info($"{root} isn't watched; folders are checked when opened.");
+        watcher.Unwatchable += root => Log.Info($"{root} isn't watched; its changes are read at the next start.");
         online = new Timer(_ => CheckOnline(), null, TimeSpan.Zero, OnlineCheck);
     }
 
@@ -96,10 +96,6 @@ public sealed class Library : IDisposable
             watcher.Watch(Roots.All(conn).Where(r => r.Online).Select(r => r.Path));
         RootsChanged?.Invoke();
     }
-
-    /// <summary>A folder was opened: it is checked against the disk at once (stale-while-revalidate, SPEC §4), which
-    /// also covers roots that can't be watched.</summary>
-    public void FolderOpened(long folderId) => Indexer.Urgent(folderId);
 
     public void Dispose()
     {

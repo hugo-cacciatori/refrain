@@ -7,7 +7,7 @@ namespace Refrain.Core.Index;
 /// <summary>Background indexing (SPEC §4): one thread runs one scan at a time from a queue. Phase A walks the
 /// folders breadth-first, so names are searchable at once; phase B reads the tags in a pool of four, every
 /// <see cref="ReadChunk"/> files the walk finds, so a track's tags (and then its LRCLIB lookup) never wait for the
-/// whole library to be listed (Hugo, 2026-10-31). What the user asks for is served first, even inside a running scan.</summary>
+/// whole library to be listed (Hugo, 2026-10-31).</summary>
 public sealed class Indexer : IDisposable
 {
     const int Readers = 4;
@@ -18,7 +18,6 @@ public sealed class Indexer : IDisposable
 
     readonly Database db;
     readonly BlockingCollection<Job> jobs = new();
-    readonly ConcurrentQueue<long> urgent = new();
     readonly CancellationTokenSource stop = new();
     readonly ManualResetEventSlim running = new(true);  // reset while paused
     readonly Thread thread;
@@ -55,13 +54,6 @@ public sealed class Indexer : IDisposable
     /// subtree. Resolved when the job runs.</summary>
     public void ScanPath(string path, bool recursive) => Add(new PathJob(path, recursive));
 
-    /// <summary>This folder, one level, before anything else, including inside a running scan.</summary>
-    public void Urgent(long folderId)
-    {
-        urgent.Enqueue(folderId);
-        Add(new PathJob("", false));  // wakes an idle indexer; an empty path does nothing
-    }
-
     void Add(Job job)
     {
         Interlocked.Increment(ref pendingJobs);
@@ -95,13 +87,12 @@ public sealed class Indexer : IDisposable
                 try
                 {
                     WaitWhilePaused();
-                    ServeUrgent();
                     switch (job)
                     {
                         case RootJob root:
                             RunRoot(root.RootId);
                             break;
-                        case PathJob { Path.Length: > 0 } path:
+                        case PathJob path:
                             RunPath(path.Path, path.Recursive);
                             break;
                     }
@@ -180,7 +171,6 @@ public sealed class Indexer : IDisposable
         {
             stop.Token.ThrowIfCancellationRequested();
             WaitWhilePaused();
-            ServeUrgent();
             var (id, folder) = queue.Dequeue();
             var found = Reconcile(id, folder);
             if (found is null) continue;
@@ -217,7 +207,6 @@ public sealed class Indexer : IDisposable
         {
             stop.Token.ThrowIfCancellationRequested();
             WaitWhilePaused();
-            ServeUrgent();
             var batch = new List<ToRead>();
             while (pending.Count > 0 && batch.Count < TagBatch) batch.Add(pending.Dequeue());
             Parallel.ForEach(batch, new ParallelOptions { MaxDegreeOfParallelism = Readers, CancellationToken = stop.Token },
@@ -241,23 +230,6 @@ public sealed class Indexer : IDisposable
         ReportProgress();
         foreach (var folder in folders) FolderChanged?.Invoke(folder);
         TracksWritten?.Invoke();
-    }
-
-    /// <summary>The folders the user asked for: listed and read now, one level.</summary>
-    void ServeUrgent()
-    {
-        while (urgent.TryDequeue(out var folderId))
-        {
-            string? path;
-            using (var conn = db.Read()) path = Queries.PathOf(conn, folderId);
-            if (path is null) continue;
-            var found = Reconcile(folderId, path);
-            if (found is null) continue;
-            var results = new ConcurrentQueue<(ToRead, TrackInfo)>();
-            Parallel.ForEach(found.ToRead, new ParallelOptions { MaxDegreeOfParallelism = Readers },
-                file => results.Enqueue((file, TagReader.Read(file.Path, file.Size, file.Mtime))));
-            Flush(results);
-        }
     }
 
     long lastProgress;
