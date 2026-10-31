@@ -103,6 +103,7 @@ public partial class App : Application
     {
         Log.Info($"Refrain {typeof(App).Assembly.GetName().Version} started");
         Theme.Apply(this);  // the look, before any window (SPEC §36 "11."); the resources exist only from here
+        Core.Dates.Homonyms.Current = new Core.Dates.Homonyms(AppPaths.Homonyms);  // how namesakes were sorted (SPEC §37)
         var queue = DispatcherQueue.GetForCurrentThread();
         if (instance is not null)
             instance.Received += later => queue.TryEnqueue(() => Handle(later));

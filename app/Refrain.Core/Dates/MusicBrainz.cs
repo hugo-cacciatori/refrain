@@ -89,6 +89,15 @@ public sealed class MusicBrainzClient : IDisposable
         return new AlbumDate(group.Title ?? album, Dates.Year(group.FirstRelease)!, prints, credit.Artist?.Id ?? "", credit.Artist?.Name ?? artist);
     }
 
+    /// <summary>The MusicBrainz artist this album is credited to, by a release-group search alone; null when unknown.</summary>
+    public async Task<string?> CreditedArtist(string artist, string album, CancellationToken cancel = default)
+    {
+        var query = WebUtility.UrlEncode($"releasegroup:{Quote(album)} AND artist:{Quote(artist)}");
+        var found = await Get($"release-group?query={query}&limit=10&fmt=json", MusicBrainzJson.Default.GroupSearch, cancel);
+        return found?.Groups?.Where(g => Names.AlbumKey(g.Title) == Names.AlbumKey(album))
+            .SelectMany(g => g.Credits ?? []).FirstOrDefault(c => Names.Key(c.Name ?? c.Artist?.Name) == Names.Key(artist))?.Artist?.Id;
+    }
+
     static string Describe(ReleaseJson release)
     {
         var parts = new List<string>();

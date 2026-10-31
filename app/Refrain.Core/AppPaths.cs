@@ -35,5 +35,7 @@ public static class AppPaths
     public static string Settings => Path.Combine(DataFolder, "settings.json");
     /// <summary>Ratings and notes (SPEC §37): the user's own data, kept apart from the index.</summary>
     public static string Ratings => Path.Combine(DataFolder, "ratings.json");
+    /// <summary>How the user sorted artists sharing a name (SPEC §37).</summary>
+    public static string Homonyms => Path.Combine(DataFolder, "homonyms.json");
     public static string Logs => Directory.CreateDirectory(Path.Combine(DataFolder, "logs")).FullName;
 }

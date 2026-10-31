@@ -23,17 +23,31 @@ public sealed record LibraryArtist(string Key, string Name, int Albums, int Song
 /// <summary>The discography view's data (SPEC §36 "11.", §37 "The library by tags"): an artist's albums, rebuilt from the
 /// tags of every track in the library wherever the files are, earliest first, each with its songs and their lyrics;
 /// <see cref="StartAlbum"/> and <see cref="StartSong"/> say where to open. The artist is a track's album artist, else its
-/// artist, grouped regardless of case, accents and punctuation (<see cref="Names"/>).</summary>
-public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<ArtistAlbum> Albums, int StartAlbum, int StartSong)
+/// artist, grouped regardless of case, accents and punctuation (<see cref="Names"/>), then split between namesakes as the
+/// user sorted them (<see cref="Dates.Homonyms"/>: "nightmare~1"). <see cref="AllStrays"/>: namesakes the user declined
+/// to sort this session, so every album floats apart (SPEC §37).</summary>
+public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<ArtistAlbum> Albums, int StartAlbum, int StartSong,
+    bool AllStrays = false)
 {
     const string ArtistColumn = "COALESCE(NULLIF(TRIM(albumartist), ''), NULLIF(TRIM(artist), ''))";
+
+    /// <summary>An artist's key in the library, its namesakes split apart.</summary>
+    static string KeyOf(string? artist, string? album) =>
+        Names.Key(artist) is { Length: > 0 } key ? Dates.Homonyms.Current.Resolve(key, Names.AlbumKey(album)) : "";
+
+    /// <summary>The name an artist shows: its most frequent spelling, and what tells it from its namesakes.</summary>
+    static string NameOf(string key, IEnumerable<string> spellings) =>
+        Names.Shown(spellings) + (Dates.Homonyms.Current.Disambiguation(key) is { } words ? $" ({words})" : "");
 
     /// <summary>The discography of the track <paramref name="entryId"/>'s artist, opened on that track; null when it
     /// has no artist.</summary>
     public static ArtistAlbums? For(SqliteConnection conn, long entryId)
     {
-        var artist = conn.Scalar($"SELECT {ArtistColumn} FROM tracks WHERE entry_id = $id", null, ("$id", entryId)) as string;
-        var key = Names.Key(artist);
+        using var cmd = conn.Command($"SELECT {ArtistColumn}, album FROM tracks WHERE entry_id = $id", null, ("$id", entryId));
+        using var r = cmd.ExecuteReader();
+        if (!r.Read() || r.IsDBNull(0)) return null;
+        var key = KeyOf(r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1));
+        r.Close();
         return key.Length == 0 ? null : ForArtist(conn, key, entryId);
     }
 
@@ -48,10 +62,11 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
         var spellings = new List<string>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT entry_id, {ArtistColumn} FROM tracks ORDER BY entry_id";
+            var baseKey = Dates.Homonyms.BaseKey(key);
+            cmd.CommandText = $"SELECT entry_id, {ArtistColumn}, album FROM tracks ORDER BY entry_id";
             using var r = cmd.ExecuteReader();
             while (r.Read())
-                if (!r.IsDBNull(1) && Names.Key(r.GetString(1)) == key)
+                if (!r.IsDBNull(1) && Names.Key(r.GetString(1)) == baseKey && KeyOf(r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2)) == key)
                 {
                     ids.Add(r.GetInt64(0));
                     spellings.Add(r.GetString(1));
@@ -101,7 +116,7 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
         var album = start is { } id ? albums.FindIndex(a => a.Songs.Any(s => s.Id == id)) : 0;
         if (album < 0) album = 0;
         var song = start is { } id2 ? Math.Max(0, albums[album].Songs.ToList().FindIndex(s => s.Id == id2)) : 0;
-        return new ArtistAlbums(key, Names.Shown(spellings), albums, album, song);
+        return new ArtistAlbums(key, NameOf(key, spellings), albums, album, song, Dates.Homonyms.Current.Refused(key));
     }
 
     /// <summary>Every artist of the library (the library level, SPEC §37), by name; songs counted as the artist level
@@ -121,7 +136,7 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
             {
                 if (r.IsDBNull(0)) continue;
                 var name = r.GetString(0);
-                var key = Names.Key(name);
+                var key = KeyOf(name, r.GetString(1));
                 if (key.Length == 0) continue;
                 if (!groups.TryGetValue(key, out var group)) groups[key] = group = ([], [], []);
                 var albumKey = Names.AlbumKey(r.GetString(1));
@@ -130,7 +145,7 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
                 group.Songs.Add((albumKey, r.IsDBNull(2) ? 1 : r.GetInt32(2), r.IsDBNull(3) ? null : r.GetInt32(3), Names.Key(r.GetString(4))));
             }
         }
-        return groups.Select(g => new LibraryArtist(g.Key, Names.Shown(g.Value.Spellings), g.Value.Albums.Count, g.Value.Songs.Count))
+        return groups.Select(g => new LibraryArtist(g.Key, NameOf(g.Key, g.Value.Spellings), g.Value.Albums.Count, g.Value.Songs.Count))
             .OrderBy(a => a.Key, StringComparer.Ordinal).ToList();
     }
 
@@ -153,7 +168,7 @@ public sealed record ArtistAlbums(string Key, string Artist, IReadOnlyList<Artis
             cmd.Parameters.AddWithValue("$id", folderId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
-                if (!r.IsDBNull(1) && Names.Key(r.GetString(1)) is { Length: > 0 } key)
+                if (!r.IsDBNull(1) && KeyOf(r.GetString(1), r.GetString(2)) is { Length: > 0 } key)
                     tracks.Add((r.GetInt64(0), key, Names.AlbumKey(r.GetString(2))));
         }
         var artists = tracks.Select(t => t.Artist).Distinct().ToList();

@@ -294,7 +294,8 @@ public sealed partial class DiscographyView : UserControl
         albumSpots.Clear();
         double width = W, height = H;
         var count = data!.Albums.Count;
-        var dated = data.Albums.Count(a => a.Year is not null);
+        bool Dated(ArtistAlbum a) => a.Year is not null && !data.AllStrays;  // namesakes not sorted: all strays (SPEC §37)
+        var dated = data.Albums.Count(Dated);
         var strays = count - dated;
         var middle = dated == 0 ? height * 0.45 : strays > 0 ? height * 0.4 : height / 2;
         var artistSize = Math.Clamp(height * 0.3, 70, 130);
@@ -308,7 +309,7 @@ public sealed partial class DiscographyView : UserControl
         foreach (var each in data.Albums)
         {
             Point center;
-            if (each.Year is not null)
+            if (Dated(each))
             {
                 center = new Point(left + spacing * (datedAt + 0.5), middle + (dated > 1 ? Stagger[datedAt % Stagger.Length] * height * (strays > 0 ? 0.6 : 1) : 0));
                 center.Y = Math.Clamp(center.Y, radius + 40, height - radius - 30);
@@ -325,7 +326,7 @@ public sealed partial class DiscographyView : UserControl
                 strayAt++;
             }
         }
-        var datedSpots = albumSpots.Where((_, i) => data.Albums[i].Year is not null).ToList();
+        var datedSpots = albumSpots.Where((_, i) => Dated(data.Albums[i])).ToList();
         for (var i = 0; i < datedSpots.Count; i++)
         {
             var (center, r) = datedSpots[i];
@@ -354,10 +355,10 @@ public sealed partial class DiscographyView : UserControl
                     Margin = new Thickness(0, radius2 * 0.3, radius2 * 0.3, 0),
                 });
             var index2 = i;
-            if (each.Year is null)
+            if (!Dated(each))
             {
                 bubble.Opacity = 0.85;
-                if (dates.Declined.Contains(DateLookup.KeyOf(data.Key, each.Key)))
+                if (each.Year is null && dates.Declined.Contains(DateLookup.KeyOf(data.Key, each.Key)))
                 {
                     var badge = new Border
                     {
@@ -377,14 +378,14 @@ public sealed partial class DiscographyView : UserControl
             Place(overview, bubble, center, radius2 * 2);
             ToolTipService.SetToolTip(bubble, $"{each.Name}{(each.Year is null ? " (no date)" : $" ({each.Year})")} · {each.Songs.Count} songs · double-click to open");
             bubble.DoubleTapped += (_, _) => ZoomIn(index2);
-            Bubbles.Drift(bubble, each.Year is null ? 8 : 5, 10 + i);
+            Bubbles.Drift(bubble, Dated(each) ? 5 : 8, 10 + i);
             if (!inside)
             {
                 var label = new TextBlock
                 {
                     Text = each.Year is null ? each.Name : $"{each.Name}\n{each.Year}",
                     FontSize = 11, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
-                    Width = Math.Max(70, (each.Year is null ? straySpacing : spacing) - 6), Foreground = new SolidColorBrush(p.Text), IsHitTestVisible = false,
+                    Width = Math.Max(70, (Dated(each) ? spacing : straySpacing) - 6), Foreground = new SolidColorBrush(p.Text), IsHitTestVisible = false,
                 };
                 Canvas.SetLeft(label, center.X - label.Width / 2);
                 Canvas.SetTop(label, center.Y + radius2 + 16);
@@ -894,7 +895,9 @@ public sealed partial class DiscographyView : UserControl
         if (data is not { } shown) return;
         var keepAlbum = shown.Albums[album].Key;
         var keepSong = shown.Albums[album].Songs.ElementAtOrDefault(song)?.Id;
-        if (await Read(conn => ArtistAlbums.ForArtist(conn, shown.Key, keepSong)) is not { } fresh || data != shown) return;
+        // By the song when there is one: sorting namesakes may have moved it to another artist's key.
+        if (await Read(conn => keepSong is { } id ? ArtistAlbums.For(conn, id) : ArtistAlbums.ForArtist(conn, shown.Key)) is not { } fresh ||
+            data != shown) return;
         data = fresh;
         album = Math.Max(0, fresh.Albums.ToList().FindIndex(a => a.Key == keepAlbum));
         song = Math.Max(0, fresh.Albums[album].Songs.ToList().FindIndex(x => x.Id == keepSong));
@@ -1026,6 +1029,7 @@ public sealed partial class DiscographyView : UserControl
         toLibrary.Visibility = now == Level.Library ? Visibility.Collapsed : Visibility.Visible;
         toArtist.Visibility = now == Level.Album && data is not null ? Visibility.Visible : Visibility.Collapsed;
         toArtist.Content = data is null ? "" : $"Back to {data.Artist}";
+        if (now != Level.Library && data is not null) _ = dates.CheckNamesakes(data);
         ToolTipService.SetToolTip(toArtist, data is null ? null : $"Every album of {data.Artist} (Esc, or zoom out with the mouse wheel)");
         _ = RefreshPanel();
     }

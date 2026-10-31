@@ -105,3 +105,49 @@ public sealed class DatesTests : IDisposable
         Assert.Equal("1997", TagFile.Read(file).Values[Field.Year]);
     }
 }
+
+/// <summary>Namesakes (SPEC §37 "Homonyms"): the user's sorting splits one name into several artists; declining leaves
+/// every album a stray. The store is the process's: these tests use a name no other test uses.</summary>
+public sealed class HomonymsTests : IDisposable
+{
+    readonly HandIndex lib = new();
+    readonly TempFolder temp = new();
+
+    public void Dispose()
+    {
+        lib.Dispose();
+        temp.Dispose();
+    }
+
+    [Fact]
+    public void Sorted_namesakes_become_artists_of_their_own()
+    {
+        var folder = lib.Folder(lib.Top, "N");
+        var jp = lib.Track(folder, "1.flac", title: "Jibun", artist: "Zzhomonym", album: "Anima", date: "2004");
+        lib.Track(folder, "2.flac", title: "Black", artist: "ZZHOMONYM", album: "Cross Fire", date: "1999");
+        var file = System.IO.Path.Combine(temp.Path, "homonyms.json");
+        var store = new Homonyms(file);
+        var before = Homonyms.Current;
+        Homonyms.Current = store;
+        try
+        {
+            Assert.False(store.Settled("zzhomonym"));
+            store.Refuse("zzhomonym");
+            Assert.True(ArtistAlbums.For(lib.Conn, jp)!.AllStrays);  // declined: every album floats apart
+
+            MusicBrainzArtist[] artists = [new("a", "Zzhomonym", "Japanese rock band"), new("b", "Zzhomonym", "French metal band")];
+            store.Split("zzhomonym", artists, new Dictionary<string, string> { ["anima"] = "a", ["cross fire"] = "b" });
+            var japanese = ArtistAlbums.For(lib.Conn, jp)!;
+            Assert.Equal(("zzhomonym~0", "Zzhomonym (Japanese rock band)", false), (japanese.Key, japanese.Artist, japanese.AllStrays));
+            Assert.Equal(["Anima"], japanese.Albums.Select(a => a.Name));
+            Assert.Equal(["ZZHOMONYM (French metal band) 1", "Zzhomonym (Japanese rock band) 1"],
+                ArtistAlbums.Library(lib.Conn).Where(a => a.Key.StartsWith("zzhomonym", StringComparison.Ordinal)).Select(a => $"{a.Name} {a.Albums}").Order());
+            Assert.True(new Homonyms(file).Settled("zzhomonym"));  // kept in the file
+            Assert.Equal("zzhomonym~1", new Homonyms(file).Resolve("zzhomonym", "cross fire"));
+        }
+        finally
+        {
+            Homonyms.Current = before;
+        }
+    }
+}

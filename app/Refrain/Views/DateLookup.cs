@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Refrain.Core;
 using Refrain.Core.Dates;
 using Refrain.Core.Index;
+using Refrain.Core.Search;
 using RefrainMenu;
 
 namespace Refrain.Views;
@@ -19,6 +20,7 @@ public sealed class DateLookup : IDisposable
     readonly Func<XamlRoot> root;
     readonly MusicBrainzClient client = new();
     readonly HashSet<(string, string)> asked = [];
+    readonly HashSet<string> namesakesChecked = [];
     bool quietScans, running;
 
     /// <summary>The albums the user declined a date for this session ("artist key|album key").</summary>
@@ -61,7 +63,9 @@ public sealed class DateLookup : IDisposable
         body.Children.Add(new TextBlock { Text = text + " Look them up on MusicBrainz?", TextWrapping = TextWrapping.Wrap });
         body.Children.Add(new ScrollViewer { Content = list, MaxHeight = 260 });
         body.Children.Add(Ui.Secondary("Each date found is written only after you say yes, album by album."));
-        if (await Ask("Dates", body, "Look them up", null, "Not now") == ContentDialogResult.Primary) await LookUp(albums, fromScan: true);
+        var answer = await Ask("Dates", body, "Look them up", null, "Not now");
+        if (answer is null) foreach (var album in albums) asked.Remove((album.ArtistKey, album.AlbumKey));  // ask again later
+        if (answer == ContentDialogResult.Primary) await LookUp(albums, fromScan: true);
     }
 
     /// <summary>One album, opened in the discography view as a stray: asked again even after "Don't remind me".</summary>
@@ -134,6 +138,8 @@ public sealed class DateLookup : IDisposable
         if (album.Partly) body.Children.Add(Ui.Secondary("Some of its songs have a date already; every song gets this one."));
         switch (await Ask("Dates", body, "Write", "Skip", "Stop"))
         {
+            case null:
+                return false;
             case ContentDialogResult.Primary:
                 var year = choices.Count > 0 ? found.Prints[choices.FindIndex(c => c.IsChecked == true)].Year : found.Year;
                 await Write(album, year);
@@ -162,6 +168,7 @@ public sealed class DateLookup : IDisposable
         var quiet = new CheckBox { Content = "Don't remind me until Refrain closes", Visibility = fromScan ? Visibility.Visible : Visibility.Collapsed };
         body.Children.Add(quiet);
         var answer = await Ask("Dates", body, "Type it in…", last ? null : "Skip", last ? "Close" : "Stop");
+        if (answer is null) return false;
         quietScans |= quiet.IsChecked == true;
         Decline(album);
         if (answer == ContentDialogResult.Primary)
@@ -214,8 +221,11 @@ public sealed class DateLookup : IDisposable
         Changed?.Invoke();
     }
 
-    async Task<ContentDialogResult> Ask(string title, UIElement body, string? primary, string? secondary, string close)
+    /// <summary>One popup at a time (this class's popups wait for each other); null when it couldn't show (another
+    /// window's dialog was open): nothing was answered.</summary>
+    async Task<ContentDialogResult?> Ask(string title, UIElement body, string? primary, string? secondary, string close)
     {
+        await dialogs.WaitAsync();
         var dialog = new ContentDialog
         {
             Title = title, Content = body, CloseButtonText = close, XamlRoot = root(),
@@ -229,10 +239,104 @@ public sealed class DateLookup : IDisposable
         }
         catch (Exception e) when (e is InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
-            Log.Info($"A dates popup couldn't show (another dialog is open): {e.Message}");
-            return ContentDialogResult.None;
+            Log.Info($"A MusicBrainz popup couldn't show (another dialog is open): {e.Message}");
+            return null;
+        }
+        finally
+        {
+            dialogs.Release();
         }
     }
 
-    public void Dispose() => client.Dispose();
+    readonly SemaphoreSlim dialogs = new(1, 1);
+
+    /// <summary>Namesakes (SPEC §37 "Homonyms"), once per artist: MusicBrainz first, then the user. Asked only when the
+    /// artist's albums here are credited on MusicBrainz to two or more artists of that name; one artist (or albums
+    /// MusicBrainz doesn't know) is remembered as checked. Unreachable: asked again next session. The user sorts the
+    /// albums (each to one of MusicBrainz's artists), says they're all one artist's, or declines: every album then
+    /// floats apart as a stray, for the session.</summary>
+    public async Task CheckNamesakes(ArtistAlbums data)
+    {
+        var key = Homonyms.BaseKey(data.Key);
+        if (SearchWindow.Offscreen || running || key != data.Key || Homonyms.Current.Settled(key) || !namesakesChecked.Add(key)) return;
+        List<MusicBrainzArtist> namesakes;
+        var credited = new Dictionary<string, string>();
+        try
+        {
+            namesakes = await client.Namesakes(data.Artist);
+            if (namesakes.Count < 2)
+            {
+                Homonyms.Current.Single(key);
+                return;
+            }
+            foreach (var album in data.Albums.Where(a => a.Key.Length > 0))
+                if (await client.CreditedArtist(data.Artist, album.Name) is { } id && namesakes.Any(n => n.Id == id)) credited[album.Key] = id;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            Log.Info($"MusicBrainz namesakes check of {data.Artist} failed: {e.Message}");
+            return;
+        }
+        var involved = credited.Values.Distinct().ToList();
+        if (involved.Count < 2)
+        {
+            Homonyms.Current.Single(key);
+            return;
+        }
+        var artists = namesakes.Where(n => involved.Contains(n.Id)).ToList();
+        string Label(MusicBrainzArtist a) => a.Disambiguation.Length > 0 ? a.Disambiguation : $"{a.Name} ({a.Id[..8]})";
+        var body = new StackPanel { Spacing = 8 };
+        body.Children.Add(new TextBlock
+        {
+            Text = $"MusicBrainz knows {artists.Count} artists named {data.Artist}, and your albums by that name belong to " +
+                   $"{(artists.Count == 2 ? "both" : "several of them")}: {string.Join("; ", artists.Select(Label))}. Which album is whose?",
+            TextWrapping = TextWrapping.Wrap,
+        });
+        var rows = new List<(ArtistAlbum Album, List<RadioButton> Choices)>();
+        var list = new StackPanel { Spacing = 6 };
+        foreach (var album in data.Albums.Where(a => a.Key.Length > 0))
+        {
+            var row = new StackPanel { Spacing = 2 };
+            row.Children.Add(new TextBlock { Text = $"{album.Name}{(album.Year is null ? "" : $" ({album.Year})")}", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            var choices = new List<RadioButton>();
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            for (var i = 0; i < artists.Count; i++)
+            {
+                var choice = new RadioButton
+                {
+                    Content = Label(artists[i]), GroupName = "namesake-" + album.Key,
+                    IsChecked = credited.TryGetValue(album.Key, out var id) ? id == artists[i].Id : i == 0,
+                };
+                choices.Add(choice);
+                line.Children.Add(choice);
+            }
+            row.Children.Add(line);
+            list.Children.Add(row);
+            rows.Add((album, choices));
+        }
+        body.Children.Add(new ScrollViewer { Content = list, MaxHeight = 320 });
+        body.Children.Add(Ui.Secondary("Not now leaves every album of this name floating apart until Refrain closes."));
+        switch (await Ask("Artists with the same name", body, "Sort them like this", "They're all one artist", "Not now"))
+        {
+            case null:
+                namesakesChecked.Remove(key);  // couldn't show: asked again next time
+                return;
+            case ContentDialogResult.Primary:
+                Homonyms.Current.Split(key, artists, rows.ToDictionary(r => r.Album.Key, r => artists[r.Choices.FindIndex(c => c.IsChecked == true)].Id));
+                break;
+            case ContentDialogResult.Secondary:
+                Homonyms.Current.One(key);
+                break;
+            default:
+                Homonyms.Current.Refuse(key);
+                break;
+        }
+        Changed?.Invoke();
+    }
+
+    public void Dispose()
+    {
+        client.Dispose();
+        dialogs.Dispose();
+    }
 }
