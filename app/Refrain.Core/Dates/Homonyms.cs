@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Refrain.Core.Dates;
@@ -87,34 +86,12 @@ public sealed class Homonyms
         {
             entries[artistKey] = entry;
             refused.Remove(artistKey);
-            if (file is null) return;
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                File.WriteAllText(file + ".tmp", JsonSerializer.Serialize(entries, HomonymsJson.Default.DictionaryStringHomonymEntry));
-                File.Move(file + ".tmp", file, overwrite: true);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                Log.Error($"{file} couldn't be saved", e);
-            }
+            if (file is not null) JsonFile.Save(file, entries, HomonymsJson.Default.DictionaryStringHomonymEntry);
         }
     }
 
-    static Dictionary<string, HomonymEntry> Load(string? file)
-    {
-        try
-        {
-            return file is not null && File.Exists(file)
-                ? JsonSerializer.Deserialize(File.ReadAllText(file), HomonymsJson.Default.DictionaryStringHomonymEntry) ?? []
-                : [];
-        }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
-        {
-            Log.Error($"{file} couldn't be read; homonyms start unsorted", e);
-            return [];
-        }
-    }
+    static Dictionary<string, HomonymEntry> Load(string? file) =>
+        JsonFile.Load(file, HomonymsJson.Default.DictionaryStringHomonymEntry, "homonyms start unsorted") ?? [];
 }
 
 public sealed class HomonymEntry

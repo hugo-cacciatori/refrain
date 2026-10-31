@@ -126,6 +126,29 @@ public sealed class IndexTests : IDisposable
     }
 
     [Fact]
+    public void A_burst_of_folder_scans_shares_one_totals_pass()
+    {
+        var music = Library();
+        var root = Add(music).RootId!.Value;
+        Scan(root);
+        var albumPath = Path.Combine(music, "Fixture Artist - Fixture Album");
+        long Tracks(string folder) => Read(conn => (long?)conn.Scalar("SELECT n_tracks FROM folder_stats WHERE entry_id = $id",
+            null, ("$id", FolderOf(folder)))) ?? 0;
+        var before = Tracks(music);
+        File.Copy(Path.Combine(albumPath, "01 First.flac"), Path.Combine(albumPath, "New.flac"));
+        File.Copy(Path.Combine(albumPath, "01 First.flac"), Path.Combine(albumPath, "CD2", "New.flac"));
+        var passes = 0;
+        indexer.ScanFinished += () => Interlocked.Increment(ref passes);
+        indexer.Paused = true;  // both scans queued before either runs: one burst
+        indexer.ScanPath(albumPath, recursive: false);
+        indexer.ScanPath(Path.Combine(albumPath, "CD2"), recursive: false);
+        indexer.Paused = false;
+        indexer.WaitIdle();
+        Assert.Equal(1, passes);
+        Assert.Equal(before + 2, Tracks(music));  // the totals count both new tracks
+    }
+
+    [Fact]
     public void A_folder_not_indexed_yet_scans_its_nearest_indexed_ancestor()
     {
         var music = Library();

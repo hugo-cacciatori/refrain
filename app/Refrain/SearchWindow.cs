@@ -323,9 +323,12 @@ public sealed partial class SearchWindow : Window
     void Wire(Grid root)
     {
         library.Indexer.FolderChanged += _ => ui.TryEnqueue(Changed);
-        library.Indexer.ScanFinished += () => ui.TryEnqueue(Changed);
-        library.Indexer.ScanFinished += () => ui.TryEnqueue(() => _ = ShowLibraryStrip());
-        library.Indexer.ScanFinished += () => ui.TryEnqueue(() => _ = AtScanEnd());
+        library.Indexer.ScanFinished += () => ui.TryEnqueue(() =>
+        {
+            Changed();
+            _ = ShowLibraryStrip();
+            _ = AtScanEnd();
+        });
         library.Indexer.Progress += (folders, read, busy) => ui.TryEnqueue(() =>
         {
             indexing.IsActive = busy;
@@ -372,7 +375,6 @@ public sealed partial class SearchWindow : Window
         cards.SelectionChanged += () => _ = PreviewOf(cards.SelectedRows);
         cards.Clicked += () => _ = PreviewOf(cards.SelectedRows);
         cards.Activated += row => _ = OpenInView(row);
-        WatchClicks();
         // The discography view covers the preview: its excerpt stops.
         discography.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) =>
         {
@@ -455,15 +457,15 @@ public sealed partial class SearchWindow : Window
         };
     }
 
-    /// <summary>The index changed: shown results refresh in place after a second.</summary>
+    /// <summary>The index changed: shown results refresh in place a second later (SPEC §6 "Live results"). A running
+    /// timer is left alone: restarting it on every change would hold the refresh back for as long as a scan writes.</summary>
     void Changed()
     {
-        if (resultsShown) liveSearchTimer.Start();
+        if (resultsShown && !liveSearchTimer.IsRunning) liveSearchTimer.Start();
     }
 
     void ShowMenu(IReadOnlyList<FileRow> rows, UIElement anchor, Windows.Foundation.Point point)
     {
-        Log.Info($"Clicks: the results' menu for {rows.Count} rows");
         if (rows.Count == 0) return;
         var menu = new MenuFlyout();
         var reveal = new MenuFlyoutItem { Text = "Open in File Explorer", IsEnabled = rows.Count == 1 };
@@ -477,35 +479,10 @@ public sealed partial class SearchWindow : Window
         if (await Read(conn => Queries.PathOf(conn, row.Id)) is { } path) Shell.Reveal(path, select: !row.IsDir);
     }
 
-    /// <summary>Temporary (Hugo, 2026-10-31: double clicks and right-clicks on results did nothing, though the handlers work
-    /// when called): logs what reaches the results lists, handled or not, and where the focus goes just after a
-    /// selection. To remove once the cause is found.</summary>
-    void WatchClicks()
-    {
-        foreach (var (name, list) in new (string, ListViewBase)[] { ("files", results.List), ("lyrics", cards.List) })
-        {
-            list.AddHandler(UIElement.DoubleTappedEvent, new DoubleTappedEventHandler((_, e) =>
-                Log.Info($"Clicks: double click on the {name} results, on {e.OriginalSource?.GetType().Name}, handled {e.Handled}")), true);
-            list.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler((_, e) =>
-                Log.Info($"Clicks: right-click on the {name} results, on {e.OriginalSource?.GetType().Name}, handled {e.Handled}")), true);
-            list.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, e) =>
-                Log.Info($"Clicks: pointer pressed on the {name} results, handled {e.Handled}")), true);
-            list.ContextRequested += (_, _) => Log.Info($"Clicks: context menu asked on the {name} results");
-        }
-        long watchUntil = 0;
-        results.SelectionChanged += () => watchUntil = Environment.TickCount64 + 3000;
-        cards.SelectionChanged += () => watchUntil = Environment.TickCount64 + 3000;
-        FocusManager.GotFocus += (_, e) =>
-        {
-            if (Environment.TickCount64 < watchUntil) Log.Info($"Clicks: focus went to {e.NewFocusedElement?.GetType().Name}");
-        };
-    }
-
     /// <summary>A result's double click (SPEC §37): the discography view at its level, a song in its album, an album, an
     /// artist, or the library with a folder's artists lit; the results stay as they are underneath.</summary>
     async Task OpenInView(FileRow row)
     {
-        Log.Info($"Clicks: opening {row.Name} in the view");
         try
         {
             var found = await Read(conn => row.IsDir ? ArtistAlbums.ForFolder(conn, row.Id)
@@ -656,11 +633,7 @@ public sealed partial class SearchWindow : Window
 
     // -- reading the index off the UI thread --
 
-    Task<T> Read<T>(Func<Microsoft.Data.Sqlite.SqliteConnection, T> query) => Task.Run(() =>
-    {
-        using var conn = library.Db.Read();
-        return query(conn);
-    });
+    Task<T> Read<T>(Func<Microsoft.Data.Sqlite.SqliteConnection, T> query) => library.Db.ReadAsync(query);
 
     // -- the library --
 
@@ -768,10 +741,6 @@ public sealed partial class SearchWindow : Window
     readonly HashSet<string> askedGain = new(StringComparer.OrdinalIgnoreCase);
     bool gainQuiet, askingGain;
 
-    /// <summary>One popup when a scan ends (the last of a burst, once the indexer is idle) and the library has albums
-    /// without ReplayGain tags that weren't asked about yet this session: run ReplayGain on all of them, one window
-    /// measuring them one after another, each folder as an album (the right-click entry for several folders). "Don't
-    /// remind me" lasts until Refrain closes. Albums a task holds are left out.</summary>
     /// <summary>A scan ended: once the indexer stays idle, the ReplayGain question, then the dates' (SPEC §37), one after
     /// the other.</summary>
     async Task AtScanEnd()
@@ -793,6 +762,10 @@ public sealed partial class SearchWindow : Window
 
     bool atScanEnd;
 
+    /// <summary>One popup when a scan ends (the last of a burst, once the indexer is idle) and the library has albums
+    /// without ReplayGain tags that weren't asked about yet this session: run ReplayGain on all of them, one window
+    /// measuring them one after another, each folder as an album (the right-click entry for several folders). "Don't
+    /// remind me" lasts until Refrain closes. Albums a task holds are left out.</summary>
     async Task AskReplayGain()
     {
         if (gainQuiet || askingGain) return;

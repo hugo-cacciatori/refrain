@@ -186,11 +186,7 @@ public sealed partial class OptionsWindow : Window
 
         async Task Fill()
         {
-            var roots = await Task.Run(() =>
-            {
-                using var conn = lib.Db.Read();
-                return Roots.All(conn).Select(r => (Root: r, Top: Queries.TopEntry(conn, r.Id))).ToList();
-            });
+            var roots = await lib.Db.ReadAsync(conn => Roots.All(conn).Select(r => (Root: r, Top: Queries.TopEntry(conn, r.Id))).ToList());
             rows.Children.Clear();
             if (roots.Count == 0) rows.Children.Add(Ui.Secondary("No folder yet."));
             foreach (var (root, top) in roots)

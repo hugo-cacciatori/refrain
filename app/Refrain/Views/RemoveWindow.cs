@@ -11,7 +11,7 @@ namespace Refrain.Views;
 /// removal runs, one file at a time under a short lock, and the window becomes its report (tracks cleared, tracks that
 /// had none, each file that couldn't be changed and why), staying until closed. The same window whether the entry
 /// came from Explorer or from the app.</summary>
-public sealed partial class RemoveWindow : Window
+public sealed partial class RemoveWindow : Window, ITaskWindow
 {
     readonly List<string> tracks;
     readonly List<string> leftOut;

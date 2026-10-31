@@ -17,7 +17,7 @@ public static class Queries
                t.entry_id IS NOT NULL, t.track, t.title, t.artist, t.album, t.date, coalesce(t.duration, s.duration),
                t.format, t.bitrate, (t.rg_track_gain IS NOT NULL) + (t.rg_track_peak IS NOT NULL)
                    + (t.rg_album_gain IS NOT NULL) + (t.rg_album_peak IS NOT NULL),
-               l.status, l.synced, t.read_error, s.n_tracks, t.lyrics_key
+               l.status, coalesce(l.synced, '') != '', t.read_error, s.n_tracks, t.lyrics_key
         """;
 
     const string ListingFrom = """
@@ -41,7 +41,7 @@ public static class Queries
             Year = r.NullableString(11), Duration = r.NullableDouble(12), Format = r.NullableString(13),
             Bitrate = r.NullableLong(14),
             ReplayGain = isRead ? rg == 4 ? ReplayGainState.Full : rg > 0 ? ReplayGainState.Partial : ReplayGainState.None : null,
-            Lrclib = isRead ? LrclibState(r.NullableString(16), r.NullableString(17), r.NullableString(20), r.NullableString(18)) : null,
+            Lrclib = isRead ? LrclibState(r.NullableString(16), r.GetInt64(17) != 0, r.NullableString(20), r.NullableString(18)) : null,
             ReadError = r.NullableString(18),
             TrackCount = isDir ? r.NullableLong(19) ?? 0 : null,
             LyricsKey = r.NullableString(20),
@@ -49,13 +49,13 @@ public static class Queries
     }
 
     /// <summary>The LRCLIB column (SPEC §5): blank when the tags can't be read; "no tags" without artist or
-    /// title (never looked up).</summary>
-    static string LrclibState(string? status, string? synced, string? key, string? readError) =>
+    /// title (never looked up). Whether synced lyrics exist comes from SQL, so a listing never reads their text.</summary>
+    static string LrclibState(string? status, bool synced, string? key, string? readError) =>
         readError is not null ? ""
         : key is null ? "no tags"
         : status switch
         {
-            "found" => string.IsNullOrEmpty(synced) ? "plain" : "synced",
+            "found" => synced ? "synced" : "plain",
             "instrumental" => "instrumental",
             "not_found" => "not found",
             _ => "pending",

@@ -17,6 +17,7 @@ public sealed partial class Stars : UserControl
     readonly TextBox note = new() { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Width = 280, Height = 130, PlaceholderText = "A note about this song" };
     string? key;
     Rating value = Rating.None;
+    (string Key, Rating Value)? editing;  // the song whose note is open: the player can move the view on meanwhile
 
     public Stars(Ratings ratings)
     {
@@ -42,11 +43,17 @@ public sealed partial class Stars : UserControl
         var flyout = new Flyout { Content = flyoutBody };
         flyout.Closed += (_, _) =>
         {
-            if (note.Text != value.Note) Save(value with { Note = note.Text.Trim() });
+            if (editing is not { } song) return;
+            editing = null;
+            if (note.Text == song.Value.Note) return;
+            ratings.Set(song.Key, ratings.Get(song.Key) with { Note = note.Text.Trim() });
+            if (song.Key == key) Load(key);
         };
         FlyoutBase.SetAttachedFlyout(more, flyout);
         more.Click += (_, _) =>
         {
+            if (key is null) return;
+            editing = (key, value);
             note.Text = value.Note;
             FlyoutBase.ShowAttachedFlyout(more);
         };

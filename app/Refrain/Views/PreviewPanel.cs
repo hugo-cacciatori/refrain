@@ -180,11 +180,7 @@ public sealed partial class PreviewPanel : UserControl
         foreach (var each in new UIElement[] { songBody, folderScroll, empty }) each.Visibility = each == body ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    Task<T> Read<T>(Func<SqliteConnection, T> query) => Task.Run(() =>
-    {
-        using var conn = library.Db.Read();
-        return query(conn);
-    });
+    Task<T> Read<T>(Func<SqliteConnection, T> query) => library.Db.ReadAsync(query);
 
     public async Task ShowRow(FileRow row)
     {

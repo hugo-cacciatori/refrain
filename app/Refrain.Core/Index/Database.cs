@@ -74,6 +74,14 @@ public sealed class Database : IDisposable
         return conn;
     }
 
+    /// <summary>Runs <paramref name="query"/> on a pool thread with a read-only connection of its own: how a window reads
+    /// the index without blocking its UI thread (Ground rule 2).</summary>
+    public Task<T> ReadAsync<T>(Func<SqliteConnection, T> query) => Task.Run(() =>
+    {
+        using var conn = Read();
+        return query(conn);
+    });
+
     /// <summary>Finishes the queued jobs, then closes the writer.</summary>
     public void Dispose()
     {

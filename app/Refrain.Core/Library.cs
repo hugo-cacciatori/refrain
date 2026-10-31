@@ -14,6 +14,8 @@ public sealed class Library : IDisposable
     readonly Watcher watcher;
     readonly Timer online;
     long lastWake;
+    int checking;  // 1 while an online check runs: a slow network root can make one outlast the timer's period
+    bool first = true;
 
     /// <summary>Roots were added, removed, or went on or offline.</summary>
     public event Action? RootsChanged;
@@ -39,9 +41,11 @@ public sealed class Library : IDisposable
         online = new Timer(_ => CheckOnline(), null, TimeSpan.Zero, OnlineCheck);
     }
 
-    /// <summary>Every root is rescanned at start (from the first online check) and when it comes back online.</summary>
+    /// <summary>Every root is rescanned at start (from the first online check) and when it comes back online. A check
+    /// still running when the timer fires again is left to finish alone.</summary>
     void CheckOnline()
     {
+        if (Interlocked.Exchange(ref checking, 1) == 1) return;
         try
         {
             List<Root> roots;
@@ -66,9 +70,11 @@ public sealed class Library : IDisposable
         {
             Log.Error("Online check failed", e);
         }
+        finally
+        {
+            Volatile.Write(ref checking, 0);
+        }
     }
-
-    bool first = true;
 
     public async Task<AddResult> Add(string path)
     {

@@ -13,7 +13,7 @@ namespace Refrain.Views;
 /// will happen to it), and Run Tidy does it album by album under a lock on the trees, with progress and live lines,
 /// then the report, which stays until closed. What is offered for the Recycle Bin shows under the report, in the same
 /// window (SPEC §36 "Tidy's redundant files in Tidy's own window"). Closing it while Tidy runs asks first.</summary>
-public sealed partial class TidyWindow : Window
+public sealed partial class TidyWindow : Window, ITaskWindow
 {
     readonly IReadOnlyList<string> folders;
     readonly Settings settings;

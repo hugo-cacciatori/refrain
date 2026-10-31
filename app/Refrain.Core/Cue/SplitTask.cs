@@ -67,8 +67,9 @@ public static class SplitTask
         {
             outcome.Error = e.Message;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or FlacException)
+        catch (Exception e)
         {
+            // Any failure ends in the report (as ReplayGain's and Tidy's do): its window must reach its end to close.
             Log.Error($"The split of {plan.Cue} failed", e);
             outcome.Error = $"{e.GetType().Name}: {e.Message}";
         }

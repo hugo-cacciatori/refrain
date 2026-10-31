@@ -422,8 +422,9 @@ public static class TrimTask
             }
             else outcome.Error = outcome.Cut.Error;
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or FlacException)
+        catch (Exception e)
         {
+            // Any failure ends in the report (as ReplayGain's and Tidy's do): its window must reach its end to close.
             Log.Error($"The trim of {plan.Source} failed", e);
             outcome.Error = $"{e.GetType().Name}: {e.Message}";
         }

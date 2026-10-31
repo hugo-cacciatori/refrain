@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Refrain.Core.Search;
 
@@ -53,35 +52,11 @@ public sealed class Ratings
         }
     }
 
-    static Dictionary<string, RatingJson> Load(string file)
-    {
-        try
-        {
-            return File.Exists(file)
-                ? JsonSerializer.Deserialize(File.ReadAllText(file), RatingsJson.Default.DictionaryStringRatingJson) ?? []
-                : [];
-        }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
-        {
-            Log.Error($"{file} couldn't be read; ratings start empty and the file is kept as it is until the next change", e);
-            return [];
-        }
-    }
+    static Dictionary<string, RatingJson> Load(string file) =>
+        JsonFile.Load(file, RatingsJson.Default.DictionaryStringRatingJson,
+            "ratings start empty and the file is kept as it is until the next change") ?? [];
 
-    void Save()
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            var temp = file + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(entries, RatingsJson.Default.DictionaryStringRatingJson));
-            File.Move(temp, file, overwrite: true);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            Log.Error($"Ratings couldn't be saved to {file}", e);
-        }
-    }
+    void Save() => JsonFile.Save(file, entries, RatingsJson.Default.DictionaryStringRatingJson);
 }
 
 public sealed class RatingJson

@@ -12,7 +12,7 @@ namespace Refrain.Views;
 /// <summary>"Edit tags…" (SPEC §36 "11."): the old side panel's Metadata tab as a window of its own, on the music files
 /// right-clicked: the tags of one or several files and the cover, saved only by Save. Closing with edits not saved asks
 /// first (SPEC §7). Its Trim… and New cue sheet… open those entries' windows.</summary>
-public sealed partial class EditTagsWindow : Window
+public sealed partial class EditTagsWindow : Window, ITaskWindow
 {
     readonly MetadataPage metadata;
     readonly List<string> audio;
@@ -48,9 +48,14 @@ public sealed partial class EditTagsWindow : Window
         };
     }
 
-    public async void Start()
+    public void Start()
     {
         Ui.Show(this);
+        _ = Load();
+    }
+
+    async Task Load()
+    {
         yearsBefore = await Task.Run(() => YearsOf(audio));
         await metadata.Load(audio, skipped);
         Ui.Fit(this);
@@ -65,9 +70,9 @@ public sealed partial class EditTagsWindow : Window
             {
                 years[path] = Dates.Year(TagFile.Read(path).Values.GetValueOrDefault(Field.Year));
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or TagLib.CorruptFileException or TagLib.UnsupportedFormatException)
+            catch (Exception)
             {
-                years[path] = null;
+                years[path] = null;  // unreadable here, unreadable on the page too: it says why
             }
         }
         return years;
@@ -90,9 +95,9 @@ public sealed partial class EditTagsWindow : Window
                 {
                     tags = TagFile.Read(path);
                 }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException or TagLib.CorruptFileException or TagLib.UnsupportedFormatException)
+                catch (Exception)
                 {
-                    continue;
+                    continue;  // its date can't be read back: nothing to offer
                 }
                 var year = Dates.Year(tags.Values.GetValueOrDefault(Field.Year));
                 if (year is null || year == yearsBefore.GetValueOrDefault(path)) continue;
@@ -134,7 +139,7 @@ public sealed partial class EditTagsWindow : Window
                 await new ContentDialog
                 {
                     Title = "Date", CloseButtonText = "Close", XamlRoot = Content.XamlRoot,
-                    Content = new TextBlock { Text = $"{year} couldn't be written into {failed.Count} files:\n{string.Join("\n", failed.Take(10))}", TextWrapping = TextWrapping.Wrap },
+                    Content = new TextBlock { Text = $"{year} couldn't be written into {Core.ReplayGain.Report.Plural(failed.Count, "file")}:\n{string.Join("\n", failed.Take(10))}", TextWrapping = TextWrapping.Wrap },
                 }.ShowAsync();
         }
     }

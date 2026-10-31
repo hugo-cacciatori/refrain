@@ -61,6 +61,7 @@ public sealed partial class ExcerptPlayer : IDisposable
 
     void Opened()
     {
+        if (Playing is null) return;  // stopped while it opened
         window = Excerpt.For(media.PlaybackSession.NaturalDuration);
         media.Volume = 0;
         media.PlaybackSession.Position = window.Start;

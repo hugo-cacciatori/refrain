@@ -10,7 +10,7 @@ namespace Refrain.Views;
 /// track, the sheet's folder, the File names masks, the sheet's encoding as read), then Split or Cancel, nothing else.
 /// The split runs in the same window (progress, Stop), then the report stays until the window closes. A sheet that
 /// can't be split as it is says why, with Split greyed.</summary>
-public sealed partial class SplitWindow : Window
+public sealed partial class SplitWindow : Window, ITaskWindow
 {
     readonly IReadOnlyList<string> paths;
     readonly Settings settings;

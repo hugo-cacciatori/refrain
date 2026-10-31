@@ -157,26 +157,7 @@ public sealed partial class FileTable : Grid, IRowList
     void Update(List<FileRow> ordered)
     {
         var selected = SelectedRows.Select(r => r.Id).ToHashSet();
-        var wanted = ordered.Select(r => r.Id).ToHashSet();
-        for (var i = items.Count - 1; i >= 0; i--)
-            if (!wanted.Contains(items[i].Id))
-                items.RemoveAt(i);
-        for (var i = 0; i < ordered.Count; i++)
-        {
-            var row = ordered[i];
-            if (i < items.Count && items[i].Id == row.Id)
-            {
-                if (items[i] != row) items[i] = row;
-                continue;
-            }
-            for (var j = i + 1; j < items.Count; j++)
-                if (items[j].Id == row.Id)
-                {
-                    items.RemoveAt(j);
-                    break;
-                }
-            items.Insert(i, row);
-        }
+        RowUpdates.Apply(items, ordered);
         Select(selected, scroll: false);
     }
 
@@ -216,8 +197,6 @@ public sealed partial class FileTable : Grid, IRowList
         List.Focus(FocusState.Keyboard);
     }
 
-    /// <summary>The row under the pointer, through its list item: the rows' data binding is skipped (they are filled
-    /// in ContainerContentChanging), so their DataContext can't be relied on.</summary>
     /// <summary>The row under a pointer, by the row's own view (<see cref="RowView"/>, <see cref="CardView"/>), which keeps
     /// the result it shows. In the Native AOT build neither the containers' type (SelectorItem, never ListViewItem) nor
     /// the elements' DataContext gave the row (both measured from Hugo's clicks, 2026-10-31).</summary>

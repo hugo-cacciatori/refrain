@@ -37,11 +37,7 @@ public sealed class DateLookup : IDisposable
 
     public static string KeyOf(string artistKey, string albumKey) => $"{artistKey}|{albumKey}";
 
-    Task<T> Read<T>(Func<SqliteConnection, T> query) => Task.Run(() =>
-    {
-        using var conn = library.Db.Read();
-        return query(conn);
-    });
+    Task<T> Read<T>(Func<SqliteConnection, T> query) => library.Db.ReadAsync(query);
 
     /// <summary>A scan ended (the indexer idle): one popup listing every undated album not asked about yet this session.</summary>
     public async Task AskAtScanEnd()

@@ -244,11 +244,7 @@ public sealed partial class DiscographyView : UserControl
         if (!SearchWindow.Offscreen) Focus(FocusState.Programmatic);
     }
 
-    Task<T> Read<T>(Func<SqliteConnection, T> query) => Task.Run(() =>
-    {
-        using var conn = index.Db.Read();
-        return query(conn);
-    });
+    Task<T> Read<T>(Func<SqliteConnection, T> query) => index.Db.ReadAsync(query);
 
     // -- drawing --
 
@@ -376,7 +372,7 @@ public sealed partial class DiscographyView : UserControl
                 }
             }
             Place(overview, bubble, center, radius2 * 2);
-            ToolTipService.SetToolTip(bubble, $"{each.Name}{(each.Year is null ? " (no date)" : $" ({each.Year})")} · {each.Songs.Count} songs · double-click to open");
+            ToolTipService.SetToolTip(bubble, $"{each.Name}{(each.Year is null ? " (no date)" : $" ({each.Year})")} · {Core.ReplayGain.Report.Plural(each.Songs.Count, "song")} · double-click to open");
             bubble.DoubleTapped += (_, _) => ZoomIn(index2);
             Bubbles.Drift(bubble, Dated(each) ? 5 : 8, 10 + i);
             if (!inside)
@@ -665,7 +661,7 @@ public sealed partial class DiscographyView : UserControl
         radii = new double[artists.Count];
         for (var i = 0; i < artists.Count; i++)
         {
-            var random = new Random(artists[i].Key.GetHashCode(StringComparison.Ordinal));
+            var random = new Random(StableHash(artists[i].Key));
             int row = i / columns, column = i % columns;
             spots[i] = new Point(Cell * (column + 0.5 + (row % 2) * 0.5) + (random.NextDouble() - 0.5) * 24,
                 Cell * 0.87 * (row + 0.5) + Cell * 0.1 + (random.NextDouble() - 0.5) * 24);
@@ -673,6 +669,15 @@ public sealed partial class DiscographyView : UserControl
         }
         world = new Size(Cell * (columns + 0.5), Cell * 0.87 * rows + Cell * 0.2);
         mapPlaced = false;
+    }
+
+    /// <summary>FNV-1a: the same in every session, so an artist's nudge off its cell stays put (string.GetHashCode changes
+    /// from run to run).</summary>
+    static int StableHash(string text)
+    {
+        var hash = 2166136261;
+        foreach (var c in text) hash = (hash ^ c) * 16777619;
+        return unchecked((int)hash);
     }
 
     double MinScale => Math.Min(1.4, Math.Min(W / Math.Max(1, world.Width), H / Math.Max(1, world.Height)));
@@ -723,9 +728,10 @@ public sealed partial class DiscographyView : UserControl
     {
         var artist = artists[i];
         var size = radii[i] * 2;
-        var bubble = Labelled(size, artist.Name, artist.Albums == 1 ? "1 album" : $"{artist.Albums} albums", 12, lit.Contains(artist.Key));
+        var albums = Core.ReplayGain.Report.Plural(artist.Albums, "album");
+        var bubble = Labelled(size, artist.Name, albums, 12, lit.Contains(artist.Key));
         bubble.Tag = artist;
-        ToolTipService.SetToolTip(bubble, $"{artist.Name} · {artist.Albums} albums · {artist.Songs} songs · double-click to open");
+        ToolTipService.SetToolTip(bubble, $"{artist.Name} · {albums} · {Core.ReplayGain.Report.Plural(artist.Songs, "song")} · double-click to open");
         var which = i;
         bubble.DoubleTapped += (_, _) => _ = EnterArtist(which);
         Place(map, bubble, spots[i], size);
@@ -823,9 +829,17 @@ public sealed partial class DiscographyView : UserControl
         if (moving) return;
         Quiet();
         var center = new Point(spots[i].X * scale + panX, spots[i].Y * scale + panY);
+        var key = artists[i].Key;
         moving = true;
-        var found = await Read(conn => ArtistAlbums.ForArtist(conn, artists[i].Key));
-        moving = false;
+        ArtistAlbums? found;
+        try
+        {
+            found = await Read(conn => ArtistAlbums.ForArtist(conn, key));
+        }
+        finally
+        {
+            moving = false;  // a failed read never leaves the view frozen
+        }
         if (found is null) return;
         data = found;
         album = song = 0;
@@ -840,8 +854,14 @@ public sealed partial class DiscographyView : UserControl
         if (moving || level == Level.Library) return;
         Quiet();
         moving = true;
-        await LoadArtists();
-        moving = false;
+        try
+        {
+            await LoadArtists();
+        }
+        finally
+        {
+            moving = false;
+        }
         var from = level == Level.Album ? albumLayer : (FrameworkElement)overview;
         var center = new Point(W / 2, H / 2);
         if (data is not null && artists.FindIndex(a => a.Key == data.Key) is var i and >= 0)
@@ -897,7 +917,7 @@ public sealed partial class DiscographyView : UserControl
         var keepSong = shown.Albums[album].Songs.ElementAtOrDefault(song)?.Id;
         // By the song when there is one: sorting namesakes may have moved it to another artist's key.
         if (await Read(conn => keepSong is { } id ? ArtistAlbums.For(conn, id) : ArtistAlbums.ForArtist(conn, shown.Key)) is not { } fresh ||
-            data != shown) return;
+            !ReferenceEquals(data, shown)) return;
         data = fresh;
         album = Math.Max(0, fresh.Albums.ToList().FindIndex(a => a.Key == keepAlbum));
         song = Math.Max(0, fresh.Albums[album].Songs.ToList().FindIndex(x => x.Id == keepSong));

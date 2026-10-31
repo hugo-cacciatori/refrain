@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Refrain.Core.Search;
@@ -59,33 +57,11 @@ public sealed partial class MusicVideos
 
     void Save()
     {
-        if (file is null) return;
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            File.WriteAllText(file + ".tmp", JsonSerializer.Serialize(known, VideosJson.Default.DictionaryStringVideoJson));
-            File.Move(file + ".tmp", file, overwrite: true);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            Log.Error($"{file} couldn't be saved", e);
-        }
+        if (file is not null) JsonFile.Save(file, known, VideosJson.Default.DictionaryStringVideoJson);
     }
 
-    static Dictionary<string, VideoJson> Load(string? file)
-    {
-        try
-        {
-            return file is not null && File.Exists(file)
-                ? JsonSerializer.Deserialize(File.ReadAllText(file), VideosJson.Default.DictionaryStringVideoJson) ?? []
-                : [];
-        }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
-        {
-            Log.Error($"{file} couldn't be read; music videos are looked up again", e);
-            return [];
-        }
-    }
+    static Dictionary<string, VideoJson> Load(string? file) =>
+        JsonFile.Load(file, VideosJson.Default.DictionaryStringVideoJson, "music videos are looked up again") ?? [];
 
     [GeneratedRegex(@"^https?://(?:www\.|m\.)?(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|v/)|youtu\.be/)([A-Za-z0-9_-]{11})")]
     private static partial Regex YouTube();

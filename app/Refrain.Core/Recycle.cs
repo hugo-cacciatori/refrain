@@ -64,13 +64,13 @@ public static partial class Recycle
     {
         var buffer = new char[1024];
         if (!GetVolumePathName(path, buffer, (uint)buffer.Length)) return $"Windows can't tell which drive {path} is on";
-        var root = new string(buffer).TrimEnd('\0');
+        var root = Text(buffer);
         var kind = GetDriveType(root);
         if (kind != DriveFixed) return $"{root} is {DriveKinds.GetValueOrDefault(kind, "a drive of an unknown kind")}, which has no Recycle Bin";
         var info = new QueryInfo { Size = Marshal.SizeOf<QueryInfo>() };
         if (SHQueryRecycleBin(root, ref info) != 0) return $"{root} has no Recycle Bin";
         if (!GetVolumeName(root, buffer, (uint)buffer.Length)) return null;  // Windows' defaults apply: the bin is on
-        var volume = new string(buffer).TrimEnd('\0').TrimEnd('\\');
+        var volume = Text(buffer).TrimEnd('\\');
         var guid = volume[(volume.LastIndexOf("Volume", StringComparison.Ordinal) + "Volume".Length)..];
         using var key = Registry.CurrentUser.OpenSubKey($@"Software\Microsoft\Windows\CurrentVersion\Explorer\BitBucket\Volume\{guid}");
         if (key is null) return null;  // never configured: Windows' defaults apply
@@ -78,6 +78,14 @@ public static partial class Recycle
         if (key.GetValue("MaxCapacity") is int limit && File.Exists(path) && new FileInfo(path).Length > limit * 1024L * 1024L)
             return $"{Path.GetFileName(path)} is bigger than the Recycle Bin of {root} allows ({limit:N0} MB)";
         return null;
+    }
+
+    /// <summary>What Windows wrote into <paramref name="buffer"/>, up to its NUL: the buffer is reused, so a shorter
+    /// second answer is followed by the rest of the first (a mount point's long path, then its volume name).</summary>
+    static string Text(char[] buffer)
+    {
+        var end = Array.IndexOf(buffer, '\0');
+        return new string(buffer, 0, end < 0 ? buffer.Length : end);
     }
 
     /// <summary>Sends one file or folder to the Recycle Bin, or throws CannotRecycleException when Windows can't (the
@@ -154,13 +162,14 @@ public static class RecycleTask
                 break;
             }
             progress?.Invoke(n, items.Count, item.Name);
-            if (Clutter.Recheck(item) is { } why)
-            {
-                report.Skipped.Add((item, why));
-                continue;
-            }
             try
             {
+                // Checked again here, in the try: a folder that can no longer be read fails alone, not the whole run.
+                if (Clutter.Recheck(item) is { } why)
+                {
+                    report.Skipped.Add((item, why));
+                    continue;
+                }
                 recycle(item.Path);
                 report.Recycled.Add(item);
             }

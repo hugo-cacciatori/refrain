@@ -15,6 +15,13 @@ public sealed partial class VideoView : UserControl
     readonly WebView2 web = new();
     readonly TextBlock problem = Ui.Secondary();
     Task<bool>? ready;
+    // The page is written once for every view: the preview's and the info panel's views starting together could both
+    // write it, and the second's "file in use" would show as WebView2 not working (inferred from the code, not seen).
+    static readonly Lazy<Task> PageWritten = new(() => Task.Run(() =>
+    {
+        Directory.CreateDirectory(AppPaths.VideoPage);
+        File.WriteAllText(Path.Combine(AppPaths.VideoPage, "player.html"), Page);
+    }));
 
     /// <summary>"playing", "ended" or "error" (YouTube refused the video: removed, or not to be embedded).</summary>
     public event Action<string>? Message;
@@ -35,8 +42,7 @@ public sealed partial class VideoView : UserControl
     {
         try
         {
-            Directory.CreateDirectory(AppPaths.VideoPage);
-            await File.WriteAllTextAsync(Path.Combine(AppPaths.VideoPage, "player.html"), Page);
+            await PageWritten.Value;
             await web.EnsureCoreWebView2Async();
             web.CoreWebView2.SetVirtualHostNameToFolderMapping(Host, AppPaths.VideoPage, CoreWebView2HostResourceAccessKind.Allow);
             web.CoreWebView2.Settings.AreDevToolsEnabled = false;

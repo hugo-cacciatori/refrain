@@ -94,35 +94,10 @@ public sealed class Settings
     public HeaderState? FileHeader { get; set; }
     public HeaderState? SearchHeader { get; set; }
 
-    public static Settings Load(string path)
-    {
-        try
-        {
-            return File.Exists(path)
-                ? JsonSerializer.Deserialize(File.ReadAllText(path), SettingsJson.Default.Settings) ?? new Settings()
-                : new Settings();
-        }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
-        {
-            Log.Error($"{path} couldn't be read; the defaults are used", e);
-            return new Settings();
-        }
-    }
+    public static Settings Load(string path) =>
+        JsonFile.Load(path, SettingsJson.Default.Settings, "the defaults are used") ?? new Settings();
 
-    /// <summary>Written to a temporary file first, so a crash never leaves half a file.</summary>
-    public void Save(string path)
-    {
-        try
-        {
-            var temp = path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, SettingsJson.Default.Settings));
-            File.Move(temp, path, overwrite: true);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            Log.Error($"{path} couldn't be saved", e);
-        }
-    }
+    public void Save(string path) => JsonFile.Save(path, this, SettingsJson.Default.Settings);
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]

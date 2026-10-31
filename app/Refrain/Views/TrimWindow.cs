@@ -212,7 +212,7 @@ sealed partial class WaveformView : Grid
 /// handles, the Start and End fields, the subfolder (… > Options…, Trim), Preview in player, Trim and Stop, then the
 /// report. Each edit is planned again on a worker once it pauses; the waveform is read once, on its own worker. A trim
 /// is just a trim: it writes one FLAC copy into the subfolder, and nothing runs after it.</summary>
-public sealed partial class TrimWindow : Window
+public sealed partial class TrimWindow : Window, ITaskWindow
 {
     const int PlanDelayMs = 80;  // after an edit (a handle dragged, a key typed), the plan follows once it pauses
 

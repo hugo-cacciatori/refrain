@@ -24,13 +24,15 @@ public sealed class Indexer : IDisposable
     readonly Thread thread;
     int filesRead;
     int foldersListed;
+    readonly HashSet<long> unfinished = [];  // roots scanned since their folder totals were last computed (indexer thread)
 
     /// <summary>A folder's children or their tags changed (raised on the indexer thread).</summary>
     public event Action<long>? FolderChanged;
     /// <summary>A batch of tracks' tags was written, during a scan (raised on the indexer thread): their LRCLIB
     /// lookups can start.</summary>
     public event Action? TracksWritten;
-    /// <summary>A scan finished; folder totals are up to date (raised on the indexer thread).</summary>
+    /// <summary>Scans finished (a whole root, or the last of a burst of folders); folder totals are up to date (raised on
+    /// the indexer thread).</summary>
     public event Action? ScanFinished;
     /// <summary>Progress: folders listed, files read, and whether work remains (throttled to 10 a second).</summary>
     public event Action<int, int, bool>? Progress;
@@ -103,6 +105,9 @@ public sealed class Indexer : IDisposable
                             RunPath(path.Path, path.Recursive);
                             break;
                     }
+                    // A whole root's totals come at once; a burst of path scans (a watcher flush, a task's folders)
+                    // shares one pass once the queue is empty.
+                    if (unfinished.Count > 0 && (job is RootJob || jobs.Count == 0)) FinishScans();
                 }
                 catch (Exception e) when (e is not OperationCanceledException)
                 {
@@ -133,7 +138,7 @@ public sealed class Indexer : IDisposable
         }
         if (top is null) return;
         Walk(top.Value, path, recursive: true);
-        Finish(rootId);
+        unfinished.Add(rootId);
     }
 
     void RunPath(string path, bool recursive)
@@ -152,12 +157,16 @@ public sealed class Indexer : IDisposable
             rootId = (long)conn.Scalar("SELECT root_id FROM entries WHERE id = $id", null, ("$id", id))!;
         }
         Walk(id, folderPath, recursive);
-        Finish(rootId);
+        unfinished.Add(rootId);
     }
 
-    void Finish(long rootId)
+    /// <summary>The folder totals of every root scanned since the last pass, then <see cref="ScanFinished"/>. One pass per
+    /// burst, not per folder: each recomputes a whole root (measured on 50,000 tracks, 2026-10-31: 130 to 220 ms, holding
+    /// the writer).</summary>
+    void FinishScans()
     {
-        db.Write((conn, tx) => ScanWrite.RecomputeStats(conn, tx, rootId)).Wait();
+        foreach (var rootId in unfinished) db.Write((conn, tx) => ScanWrite.RecomputeStats(conn, tx, rootId)).Wait();
+        unfinished.Clear();
         ScanFinished?.Invoke();
     }
 

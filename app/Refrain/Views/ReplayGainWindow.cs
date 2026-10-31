@@ -11,7 +11,7 @@ namespace Refrain.Views;
 /// <summary>A ReplayGain entry's own window (SPEC §31, §35): it starts at once (no preview, as the tool), shows
 /// per-album progress and rsgain's live lines, then the report, which stays until the window closes. Its folders are
 /// locked for the run; files another task holds refuse it, in the window. Closing it while it runs asks first.</summary>
-public sealed partial class ReplayGainWindow : Window
+public sealed partial class ReplayGainWindow : Window, ITaskWindow
 {
     /// <summary>Where every refusal points for the options (they may come from Explorer or from the app).</summary>
     public const string OptionsWhere = "… > Options… in Refrain, or Refrain > Settings in the right-click menu";

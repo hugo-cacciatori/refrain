@@ -8,6 +8,14 @@ using Windows.Storage.Streams;
 
 namespace Refrain.Views;
 
+/// <summary>A task's own window (SPEC §35), as a right-click entry opens it: <see cref="Start"/> shows it, and
+/// <see cref="Finished"/> names the folders whose files it changed, for the index to read again.</summary>
+public interface ITaskWindow
+{
+    event Action<IReadOnlyList<string>>? Finished;
+    void Start();
+}
+
 /// <summary>Small shared pieces of the code-built UI.</summary>
 static class Ui
 {

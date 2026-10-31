@@ -228,6 +228,24 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public void The_lrclib_column_says_synced_plain_instrumental_or_not_found()
+    {
+        void Lyrics(string key, string status, string? plain = null, string? synced = null) =>
+            lib.Scalar("INSERT INTO lyrics (key, status, plain, synced, checked) VALUES ($k, $s, $p, $sy, '2026-10-31')",
+                ("$k", key), ("$s", status), ("$p", plain), ("$sy", synced));
+        Lyrics("k1", "found", "words", "[00:01.00] words");
+        Lyrics("k2", "found", "words", "");  // an empty synced text is plain lyrics
+        Lyrics("k3", "instrumental");
+        Lyrics("k4", "not_found");
+        var rows = Queries.Listing(lib.Conn, album).Concat(Queries.Listing(lib.Conn, other)).ToDictionary(r => r.Name, r => r.Lrclib);
+        Assert.Equal("synced", rows["01 Hunter.flac"]);
+        Assert.Equal("plain", rows["02 Jóga.flac"]);
+        Assert.Equal("instrumental", rows["Glove.mp3"]);
+        Assert.Equal("not found", rows["lovely.opus"]);
+        Assert.Equal("no tags", rows["untitled.flac"]);
+    }
+
+    [Fact]
     public void Rows_gone_meanwhile_are_dropped()
     {
         var ids = LibrarySearch.Find(lib.Conn, SearchQuery.Parse("homogenic")).Ids;

@@ -167,11 +167,7 @@ public sealed partial class LyricsPage : UserControl
     {
         if (entryId is not { } id) return;
         var mine = ++generation;
-        var read = await Task.Run(() =>
-        {
-            using var conn = library.Db.Read();
-            return LyricsIndex.Info(conn, id);
-        });
+        var read = await library.Db.ReadAsync(conn => LyricsIndex.Info(conn, id));
         if (mine != generation) return;
         info = read;
         if (read is null)

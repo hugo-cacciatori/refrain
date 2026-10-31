@@ -164,51 +164,26 @@ public partial class App : Application
     {
         if (paths.Count == 0) return;
         var replayGain = settings.GetReplayGain();
-        if (ReplayGainKinds.TryGetValue(entry, out var kind))
+        ITaskWindow task = entry switch
         {
-            var items = paths.Select(p => (p, Directory.Exists(p))).ToList();
-            var label = MenuLogic.Entries(MenuLogic.Classify(false, items), items, replayGain.Target)
-                .FirstOrDefault(e => e.Verb == entry)?.Label ?? "ReplayGain";
-            var task = new ReplayGainWindow(label, kind, paths, replayGain, Locks);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
-        else if (entry is MenuLogic.EditCue or MenuLogic.NewCue)
-        {
-            var task = new CueEditorWindow(paths[0], entry == MenuLogic.NewCue, settings, Locks);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
-        else if (entry == MenuLogic.Split)
-        {
-            var task = new SplitWindow(paths, settings, Locks);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
-        else if (entry == MenuLogic.Trim)
-        {
-            var task = new TrimWindow(paths, settings, Locks);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
-        else if (entry == MenuLogic.EditTags)
-        {
-            var task = new EditTagsWindow(paths);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
-        else if (entry == MenuLogic.Tidy)
-        {
-            var task = new TidyWindow(paths, settings, Locks);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
-        else
-        {
-            var task = new RemoveWindow(paths, replayGain, Locks);
-            task.Finished += folders => window?.TaskChanged(folders);
-            task.Start();
-        }
+            _ when ReplayGainKinds.TryGetValue(entry, out var kind) =>
+                new ReplayGainWindow(ReplayGainLabel(entry, paths, replayGain.Target), kind, paths, replayGain, Locks),
+            MenuLogic.EditCue or MenuLogic.NewCue => new CueEditorWindow(paths[0], entry == MenuLogic.NewCue, settings, Locks),
+            MenuLogic.Split => new SplitWindow(paths, settings, Locks),
+            MenuLogic.Trim => new TrimWindow(paths, settings, Locks),
+            MenuLogic.EditTags => new EditTagsWindow(paths),
+            MenuLogic.Tidy => new TidyWindow(paths, settings, Locks),
+            _ => new RemoveWindow(paths, replayGain, Locks),
+        };
+        task.Finished += folders => window?.TaskChanged(folders);
+        task.Start();
+    }
+
+    /// <summary>The ReplayGain window's title: the entry's label as the right-click menu shows it for these items.</summary>
+    static string ReplayGainLabel(string entry, IReadOnlyList<string> paths, double target)
+    {
+        var items = paths.Select(p => (p, Directory.Exists(p))).ToList();
+        return MenuLogic.Entries(MenuLogic.Classify(false, items), items, target).FirstOrDefault(e => e.Verb == entry)?.Label ?? "ReplayGain";
     }
 
     /// <summary>The one Options window, brought forward if already open; the File names example reads its first track

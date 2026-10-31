@@ -13,7 +13,7 @@ namespace Refrain.Views;
 /// pickers, the album fields and their other lines, the track table, the selected track's other lines, Add / Delete
 /// track, Fill from track lengths…, live checks, Preview in player, Save and Save as…. It edits and saves only: the split
 /// is the Split window's. Opened on a .cue, or on an audio file for New cue sheet… (a new, unsaved sheet).</summary>
-public sealed partial class CueEditorWindow : Window
+public sealed partial class CueEditorWindow : Window, ITaskWindow
 {
     const int PlanDelayMs = 300;
     static readonly (string Key, string Header, double Width)[] Columns =

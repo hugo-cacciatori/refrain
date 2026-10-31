@@ -17,6 +17,42 @@ public interface IRowList
     event Action? SelectionChanged;
 }
 
+/// <summary>The live re-run's update, shared by the search table and the lyrics cards (SPEC §6 "Live results"): rows gone
+/// are removed, changed rows replaced, new ones inserted in their place, so the selection and the scroll stay.</summary>
+static class RowUpdates
+{
+    public static void Apply(ObservableCollection<FileRow> items, IReadOnlyList<FileRow> rows)
+    {
+        var wanted = rows.Select(r => r.Id).ToHashSet();
+        for (var i = items.Count - 1; i >= 0; i--)
+            if (!wanted.Contains(items[i].Id))
+                items.RemoveAt(i);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            if (i < items.Count && items[i].Id == row.Id)
+            {
+                if (!Same(items[i], row)) items[i] = row;
+                continue;
+            }
+            for (var j = i + 1; j < items.Count; j++)
+                if (items[j].Id == row.Id)
+                {
+                    items.RemoveAt(j);
+                    break;
+                }
+            items.Insert(i, row);
+        }
+    }
+
+    /// <summary>The same row: a record compares its highlight lists by reference, and each run makes new ones, so every
+    /// row of a live re-run looked changed and was replaced (redrawn, its selection dropped and restored).</summary>
+    static bool Same(FileRow a, FileRow b) =>
+        a == b || a.TitleSpans.SequenceEqual(b.TitleSpans) && a.ArtistSpans.SequenceEqual(b.ArtistSpans) &&
+        a.ExtractSpans.SequenceEqual(b.ExtractSpans) &&
+        a == (b with { TitleSpans = a.TitleSpans, ArtistSpans = a.ArtistSpans, ExtractSpans = a.ExtractSpans });
+}
+
 /// <summary>Lyrics search's results as cards (SPEC §6 "Direction task 6", §36 "6."): the title in bold, the artist and
 /// album dimmed, then three lines of lyrics around the match, highlighted. A click selects a card (the side panel
 /// shows its lyrics); a double-click or Enter goes to its folder.</summary>
@@ -92,25 +128,7 @@ public sealed partial class CardList : Grid, IRowList
             }
             else
             {
-                var wanted = rows.Select(r => r.Id).ToHashSet();
-                for (var i = items.Count - 1; i >= 0; i--)
-                    if (!wanted.Contains(items[i].Id))
-                        items.RemoveAt(i);
-                for (var i = 0; i < rows.Count; i++)
-                {
-                    if (i < items.Count && items[i].Id == rows[i].Id)
-                    {
-                        if (items[i] != rows[i]) items[i] = rows[i];
-                        continue;
-                    }
-                    for (var j = i + 1; j < items.Count; j++)
-                        if (items[j].Id == rows[i].Id)
-                        {
-                            items.RemoveAt(j);
-                            break;
-                        }
-                    items.Insert(i, rows[i]);
-                }
+                RowUpdates.Apply(items, rows);
                 Select(before, scroll: false);
             }
         }
