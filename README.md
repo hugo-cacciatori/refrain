@@ -103,12 +103,3 @@ Explorer's right-click menu appears once File Explorer restarts: sign out and in
 To uninstall, use Settings › Apps › Installed apps. Refrain keeps its own data (the library index, settings and
 logs) in `%LOCALAPPDATA%\Refrain`, which stays: delete that folder yourself if you don't want it. Your music folders
 are never touched.
-
-## Licence
-
-Refrain is free to use, for personal and commercial purposes, but it is not open source: see [LICENSE](LICENSE).
-Versions up to 0.15.0 were published under the GNU General Public License, version 3 or later.
-
-It bundles rsgain (BSD-2-Clause) with FFmpeg (LGPL-2.1-or-later) and Fraunhofer FDK AAC, and flac
-(GPL-2.0-or-later, with libFLAC under Xiph's BSD-style licence); their licence texts, and where to get their source
-code, are in [`licenses/`](licenses/).

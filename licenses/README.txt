@@ -1,6 +1,4 @@
-Refrain is free to use but not open source: its licence is LICENSE.txt in this folder (LICENSE in
-https://github.com/hugo-cacciatori/refrain). Versions up to 0.15.0 were published under the GNU General Public
-License, version 3 or later.
+Refrain's licence is LICENSE.txt in this folder.
 
 Refrain ships with these third-party components. Their licence texts are in this folder. The libraries the app is
 built from (the Rust crates in Refrain.exe and its right-click menu, the page's packages) are listed, each with its
