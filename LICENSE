@@ -1,0 +1,18 @@
+Refrain licence
+Copyright (c) 2026 Hugo Cacciatori. All rights reserved except as stated below.
+
+You may install and use the official Refrain builds free of charge, for personal and commercial purposes,
+and make installation and backup copies for your own use.
+
+You may not modify, redistribute, sell, rent or sublicense Refrain, nor decompile or reverse engineer it,
+except where applicable law allows it despite this restriction. Refrain's source code is not published; this
+is not an open-source licence. Versions up to 0.15.0 were published under the GNU General Public License,
+version 3 or later, and stay under it.
+
+Third-party components shipped with Refrain keep their own licences, whose texts are in the licenses folder
+of every build and of the public repository. Nothing here restricts the rights those licences or applicable law
+grant, including the right to modify and replace a component under the GNU LGPL or GPL.
+
+Refrain is provided "as is", without warranty of any kind, express or implied, including merchantability,
+fitness for a particular purpose and noninfringement. To the extent permitted by law, the copyright owner is not
+liable for any claim, damages or other liability arising from its use.

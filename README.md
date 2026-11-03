@@ -1,0 +1,114 @@
+# Refrain
+
+A Windows app for looking after a local music library, from File Explorer's right-click menu: find any track or
+lyric line, edit tags and covers, read lyrics, and tidy albums (split single-file albums from their cue sheet, rename
+files from their tags, apply ReplayGain).
+
+Refrain works on your files where they are. It never copies or moves music, and never deletes anything for good.
+Its only changes are the ones you ask for: tag edits, renames, ReplayGain tags and a `replaygain.log` per album,
+the tracks of a split, trimmed copies and the cue sheets you save. What you leave checked in Tidy's list of
+redundant files, and a cue sheet you save over, go to the Recycle Bin.
+
+## How to use it
+
+Right-click a folder, a folder's empty space, or some files in File Explorer, then **Refrain**. The submenu offers
+what fits what you clicked, and each entry opens a small window of its own. Several can run side by side; only the
+files one is working on are refused to the others. Each window ends with a report of what was done, which stays
+until you close it.
+
+Refrain also starts on its own, from the Start menu, Windows search or its desktop icon: it opens the Search window,
+ready for a search.
+
+## Features
+
+- **Open in Refrain** (on a folder or a music file): the Search window, opened on the discography of what you
+  right-clicked: a song in its album, an album, an artist's albums, or, for a folder of several artists, the whole
+  library with theirs lit. The folder joins the library if it wasn't in it, and opens once it has been read.
+- **The discography view** rebuilds your library from its tags, wherever the files are: every artist as a bubble, an
+  artist's albums from earliest to latest, an album's songs and their lyrics. The mouse wheel zooms from the library
+  into an artist and an album, and back out; drag to move around the library. Names that differ only in case, accents
+  or punctuation are one artist, and "CD1", "Disc 2" or "[Remastered]" don't split an album. Each album's cover
+  shows in its bubble like a reflection, and the room takes the colour of the album you're in (an artist's, the mix
+  of its albums'). An info panel on the right shows the open artist, album or song (tags, format, ReplayGain, where
+  the file is); right-click anything to open it in File Explorer.
+- **The player**, a bar along the bottom of the Search window: a click on a song in the discography view plays it,
+  and its album goes on, starting over after the last song (or stopping, in Options). Where LRCLIB has timed lyrics,
+  the line being sung lights up, and a click on a line plays from there. Refrain reopens on the last song, paused.
+  It never plays a file while ReplayGain, Tidy or another task is changing its folder: it stops and says why, or
+  skips those songs if you choose that in Options. Options can also mark which songs have ReplayGain tags, and have
+  the player apply them (album gain, or track gain). When the library has albums without ReplayGain tags, Refrain
+  offers once to run ReplayGain on them all.
+- **Dates** from [MusicBrainz](https://musicbrainz.org): when albums have no date, or not on every song, Refrain
+  offers to look them up and writes a date only after you say yes, choosing the year yourself when an album had
+  several prints. An undated album floats apart in the discography view until it gets one; a date typed in Edit tags
+  can go to the album's other songs too. When MusicBrainz shows that your albums under one name belong to different
+  artists (two bands called Nightmare), Refrain asks you to sort them, and shows them as separate artists from then
+  on. Only the artist's and album's names are sent.
+- **Music videos**: when MusicBrainz links a song to its official music video on YouTube, the preview plays the
+  video instead of the audio excerpt, and the discography view's info panel has a Video tab to watch it whole
+  (starting it pauses the player). Videos play in YouTube's own embedded player, through Windows' web view.
+- **The Search window**, over your whole library. Type any part of a folder or file name, a title, artist, album or
+  lyric line; accents and case are ignored, and filters such as `artist:`, `year:`, `ext:` or `lrclib:notfound`
+  narrow it. A click on a result previews it on the right while about 30 seconds of it play (silent while the player
+  plays; the speaker button mutes previews): a song's tags, file and lyrics, an album's songs and ReplayGain state,
+  an artist's albums, and for a folder a Tidy section that lights up when Tidy has something to do there, saying
+  what and to which file, with Run Tidy. Rate songs there with up to five stars, by halves, and add a note; ratings stay in Refrain, not
+  in your files, and follow the song's tags. A double click opens the result in the discography view; right-click it
+  to open it in File Explorer. The … button adds library folders, and Options' Library page removes them; Refrain
+  keeps up with what changes in them by itself.
+- **Lyrics** from [LRCLIB](https://lrclib.net), looked up in the background for every track. The Search window's
+  Lyrics mode shows the matching lines as cards; a click previews the song with its whole lyrics, with links to
+  search Genius or Google when LRCLIB has none. Refrain never writes lyrics into your files.
+- **Edit tags…** (on music files): the tags of one file or many at once, and the cover, in FLAC, MP3, M4A/ALAC,
+  Opus, Ogg Vorbis, WMA, WAV, AIFF, WavPack and more. ID3 versions are kept as they were. Nothing changes until you
+  save.
+- **Tidy** (on folders): a whole folder tree, album by album. Albums still in one file with their cue sheet are
+  split into tracks, tracks are renamed with your file name masks, then ReplayGain runs where it's missing or for
+  another target. You see the whole plan first and run it with one button. At the end, the same window lists what
+  became redundant (split images and their cue sheets, pictures, videos and empty folders beside the music), every
+  box checked: uncheck what to keep, then Delete selected sends the rest to the Recycle Bin.
+- **ReplayGain** with the bundled [rsgain](https://github.com/complexlogic/rsgain): a folder as an album or as a
+  discography, several folders each as an album, selected tracks as an album or each on its own. The entries show
+  your target loudness. Each album run writes a fresh `replaygain.log`; images still waiting to be split are left
+  alone. **Remove ReplayGain tags…** (on tracks) asks first.
+- **Split this cue sheet…** (on a `.cue`): cuts a single-file album, such as an EAC rip (one FLAC, WAV or AIFF image
+  and its `.cue`), into one FLAC file per track. A window lists the tracks it will write first. Each is cut with the
+  bundled [flac](https://xiph.org/flac/), tagged from the sheet with the album's cover, named with your file name
+  masks, and checked sample for sample against its part of the original. Nothing is overwritten, and the image and
+  its sheet are never touched.
+- **Edit this cue sheet…** (on a `.cue`) and **New cue sheet…** (on a FLAC, WAV or AIFF file): the audio file it
+  points to, start times and gaps, titles and the other fields, tracks to add or delete, the text encoding of old
+  sheets. Save changes only the lines you edited. **Fill from track lengths…** sets the start times from a
+  tracklist, and **Preview in player** plays the sheet as it is, unsaved edits included, in your default player (one
+  that reads cue sheets).
+- **Trim this track…** (on a FLAC, WAV or AIFF file): drag the two handles on the waveform, or type the times, to
+  drop a long silence or a hidden track at either end, hear the result with Preview in player, then Trim. A FLAC
+  copy goes into a subfolder (`lite` by default) with the original's tags, checked sample for sample. The original
+  is never touched.
+- **Settings** (always): file name masks, ReplayGain's target and keywords, what Tidy renames and offers, how new cue
+  sheets are saved, Trim's subfolder, the player, and your library folders.
+- **Light and dark**: a light, airy look of soft bubbles, and a dusk version when Windows is in dark mode.
+
+## Install
+
+Download `Refrain-Setup-<version>.exe` from the
+[latest release](https://github.com/hugo-cacciatori/refrain/releases/latest) and run it (64-bit Windows 10 or
+Windows 11). It installs for you only, in `%LOCALAPPDATA%\Programs\Refrain`, and adds Refrain to the Start menu. The
+setup isn't signed, so Windows SmartScreen may warn about it: choose "More info", then "Run anyway".
+
+On its first start, Refrain asks for your music folder (more can be added with the … button beside the search
+field); it reads them in the background and looks up their lyrics on LRCLIB. Installing a newer version keeps your library and settings. The Refrain submenu in File
+Explorer's right-click menu appears once File Explorer restarts: sign out and in again, or restart your PC.
+
+To uninstall, use Settings › Apps › Installed apps. Refrain keeps its own data (the library index, settings and
+logs) in `%LOCALAPPDATA%\Refrain`, which stays: delete that folder yourself if you don't want it. Your music folders
+are never touched.
+
+## Licence
+
+Refrain is free to use, for personal and commercial purposes, but it is not open source: see [LICENSE](LICENSE).
+Versions up to 0.15.0 were published under the GNU General Public License, version 3 or later.
+
+It bundles rsgain (BSD-2-Clause) with FFmpeg (LGPL-2.1-or-later) and Fraunhofer FDK AAC, and flac
+(GPL-2.0-or-later, with libFLAC under Xiph's BSD-style licence); their licence texts, and where to get their source
+code, are in [`licenses/`](licenses/).
