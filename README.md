@@ -32,10 +32,10 @@ ready for a search.
   of its albums'). An info panel on the right shows the open artist, album or song (tags, format, ReplayGain, where
   the file is); right-click anything to open it in File Explorer.
 - **The player**, a bar along the bottom of the Search window: a click on a song in the discography view plays it,
-  and its album goes on, starting over after the last song (or stopping, in Options). Where LRCLIB has timed lyrics,
+  and its album goes on, starting over after the last song (or stopping, in Settings). Where LRCLIB has timed lyrics,
   the line being sung lights up, and a click on a line plays from there. Refrain reopens on the last song, paused.
   It never plays a file while ReplayGain, Tidy or another task is changing its folder: it stops and says why, or
-  skips those songs if you choose that in Options. Options can also mark which songs have ReplayGain tags, and have
+  skips those songs if you choose that in Settings. Settings can also mark which songs have ReplayGain tags, and have
   the player apply them (album gain, or track gain). When the library has albums without ReplayGain tags, Refrain
   offers once to run ReplayGain on them all.
 - **Dates** from [MusicBrainz](https://musicbrainz.org): when albums have no date, or not on every song, Refrain
@@ -54,12 +54,12 @@ ready for a search.
   an artist's albums, and for a folder a Tidy section that lights up when Tidy has something to do there, saying
   what and to which file, with Run Tidy. Rate songs there with up to five stars, by halves, and add a note; ratings stay in Refrain, not
   in your files, and follow the song's tags. A double click opens the result in the discography view; right-click it
-  to open it in File Explorer. The … button adds library folders, and Options' Library page removes them; Refrain
+  to open it in File Explorer. The … button adds library folders, and the Settings window's Library page removes them; Refrain
   keeps up with what changes in them by itself.
 - **Lyrics** from [LRCLIB](https://lrclib.net), looked up in the background for every track. The Search window's
   Lyrics mode shows the matching lines as cards; a click previews the song with its whole lyrics, with links to
   search Genius or Google when LRCLIB has none. Refrain never writes lyrics into your files.
-- **Edit tags…** (on music files): the tags of one file or many at once, and the cover, in FLAC, MP3, M4A/ALAC,
+- **Edit tags** (on music files): the tags of one file or many at once, and the cover, in FLAC, MP3, M4A/ALAC,
   Opus, Ogg Vorbis, WMA, WAV, AIFF, WavPack and more. ID3 versions are kept as they were. Nothing changes until you
   save.
 - **Tidy** (on folders): a whole folder tree, album by album. Albums still in one file with their cue sheet are
@@ -70,18 +70,18 @@ ready for a search.
 - **ReplayGain** with the bundled [rsgain](https://github.com/complexlogic/rsgain): a folder as an album or as a
   discography, several folders each as an album, selected tracks as an album or each on its own. The entries show
   your target loudness. Each album run writes a fresh `replaygain.log`; images still waiting to be split are left
-  alone. **Remove ReplayGain tags…** (on tracks) asks first.
-- **Split this cue sheet…** (on a `.cue`): cuts a single-file album, such as an EAC rip (one FLAC, WAV or AIFF image
+  alone. **Remove ReplayGain tags** (on tracks) asks first.
+- **Split this cue sheet** (on a `.cue`): cuts a single-file album, such as an EAC rip (one FLAC, WAV or AIFF image
   and its `.cue`), into one FLAC file per track. A window lists the tracks it will write first. Each is cut with the
   bundled [flac](https://xiph.org/flac/), tagged from the sheet with the album's cover, named with your file name
   masks, and checked sample for sample against its part of the original. Nothing is overwritten, and the image and
   its sheet are never touched.
-- **Edit this cue sheet…** (on a `.cue`) and **New cue sheet…** (on a FLAC, WAV or AIFF file): the audio file it
+- **Edit this cue sheet** (on a `.cue`) and **New cue sheet** (on a FLAC, WAV or AIFF file): the audio file it
   points to, start times and gaps, titles and the other fields, tracks to add or delete, the text encoding of old
-  sheets. Save changes only the lines you edited. **Fill from track lengths…** sets the start times from a
+  sheets. Save changes only the lines you edited. **Fill from track lengths** sets the start times from a
   tracklist, and **Preview in player** plays the sheet as it is, unsaved edits included, in your default player (one
   that reads cue sheets).
-- **Trim this track…** (on a FLAC, WAV or AIFF file): drag the two handles on the waveform, or type the times, to
+- **Trim this track** (on a FLAC, WAV or AIFF file): drag the two handles on the waveform, or type the times, to
   drop a long silence or a hidden track at either end, hear the result with Preview in player, then Trim. A FLAC
   copy goes into a subfolder (`lite` by default) with the original's tags, checked sample for sample. The original
   is never touched.
